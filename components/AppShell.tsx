@@ -38,6 +38,7 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
       <nav className="hidden sm:flex flex-col sticky top-0 h-screen w-[68px] xl:w-[275px] px-2 xl:px-4 py-2 border-r" style={{ borderColor: "var(--border)" }}>
         <div className="text-3xl font-black px-3 py-3" style={{ color: "var(--accent)" }}>𝕏</div>
         {tab("home", "🏠", "Home", "/dashboard")}
+        <a className="tw-navitem" href="/events"><span>📅</span><span className="hidden xl:inline">Events</span></a>
         {tab("explore", "🔍", "Explore")}
         <a className="tw-navitem"><span>🔔</span><span className="hidden xl:inline">Notifications</span></a>
         <a className="tw-navitem"><span>✉️</span><span className="hidden xl:inline">Messages</span></a>

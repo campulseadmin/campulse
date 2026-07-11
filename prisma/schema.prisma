@@ -1,5 +1,7 @@
 // CamPulse — multi-tenant campus super-app (SRM = campusId 1)
-// Dev on SQLite; swap `provider` to "postgresql" for production (schema is portable).
+// Local dev uses SQLite. For Vercel deploy, swap `provider` to "postgresql"
+// and set DATABASE_URL to a hosted Postgres (Vercel Postgres / Neon / Supabase).
+// Schema is otherwise identical across both engines.
 
 generator client {
   provider = "prisma-client-js"
@@ -171,10 +173,27 @@ model Event {
   startsAt    DateTime
   endsAt      DateTime?
   isApproved  Boolean  @default(false)
+
+  // Provenance — where the event came from. sourceType:
+  //   ADMIN     — created by a campus admin in the admin panel
+  //   SEED      — seeded curated content (known clubs, no external fetch)
+  //   REDDIT    — ingested from the campus-owned subreddit
+  //   INSTAGRAM — ingested from the campus-owned Instagram handle
+  sourceType  String   @default("ADMIN")
+  sourceHandle String? // e.g. "r/SRMCampusPulse", "@campulse.srm"
+  sourceUrl   String?  // permalink to the original post
+  externalId  String?  // platform post id (dedupe key)
+
+  imageUrl    String?
+
   createdAt   DateTime @default(now())
 
   rsvps Rsvp[]
 
+  // NOTE: no DB-level unique on (sourceType, externalId) — SQLite can't do a
+  // partial unique, and (ADMIN, null) would collide across admin events.
+  // Dedupe is enforced in code (lib/sources.ts) only for ingested posts that
+  // carry a real externalId.
   @@index([campusId, startsAt])
 }
 
