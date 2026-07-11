@@ -1,14 +1,15 @@
 // CamPulse — multi-tenant campus super-app (SRM = campusId 1)
-// Production runs on Postgres (Vercel Postgres / Neon / Supabase).
-// `DATABASE_URL` selects the instance; schema is identical across both engines.
-// For local SQLite dev, set provider back to "sqlite".
+// LOCAL DEV uses SQLite (runs with zero setup: `npm run dev`).
+// For Vercel deploy, swap `provider` to "postgresql" and set DATABASE_URL to a
+// hosted Postgres (Vercel Postgres / Neon / Supabase). Schema is otherwise
+// identical across both engines. See DEPLOY.md.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
