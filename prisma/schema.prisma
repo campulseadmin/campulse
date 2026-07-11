@@ -1,0 +1,207 @@
+// CamPulse — multi-tenant campus super-app (SRM = campusId 1)
+// Dev on SQLite; swap `provider` to "postgresql" for production (schema is portable).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Tenancy ──────────────────────────────────────────────
+model Campus {
+  id          Int      @id @default(autoincrement())
+  name        String // "SRM Institute of Science and Technology"
+  shortName   String // "SRM"
+  slug        String   @unique // "srm"
+  emailDomain String // "srmist.edu.in" — gate signups to this domain
+  createdAt   DateTime @default(now())
+
+  users       User[]
+  communities Community[]
+  posts       Post[]
+  events      Event[]
+}
+
+// ── Users ────────────────────────────────────────────────
+// Roles stored as string (STUDENT | MODERATOR | ADMIN). String for SQLite portability.
+
+model User {
+  id           String    @id @default(cuid())
+  campusId     Int
+  campus       Campus    @relation(fields: [campusId], references: [id])
+  email        String    @unique // srm email, verified
+  passwordHash String? // bcrypt hash; set at signup (email+password auth)
+  emailVerified DateTime?
+  username     String?   @unique // @handle, chosen at onboarding
+  displayName  String?
+  avatarUrl    String?
+  bio          String?
+  role         String    @default("STUDENT") // STUDENT | MODERATOR | ADMIN
+  dept         String? // CSE, ECE...
+  batch        String? // 2023-2027
+  isBanned     Boolean   @default(false)
+  bannedUntil  DateTime?
+  usernameChangedAt DateTime? // last @handle change (14-day cooldown)
+  createdAt    DateTime  @default(now())
+
+  posts            Post[]
+  comments         Comment[]
+  likes            Like[]
+  rsvps            Rsvp[]
+  memberships      Membership[]
+  reportsFiled     Report[]  @relation("Reporter")
+  eventsCreated    Event[]   @relation("EventCreator")
+
+  @@index([campusId])
+  @@unique([campusId, username])
+}
+
+// One-time OTP login grant (minted after email code is verified; exchanged
+// for a session via the credentials provider, then deleted).
+model OtpGrant {
+  email     String   @id
+  grantHash String
+  expiresAt DateTime
+
+  @@index([email])
+}
+
+// OTP email verification codes
+model OtpCode {
+  id        String   @id @default(cuid())
+  email     String
+  codeHash  String // hashed 6-digit code
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+// ── Communities ──────────────────────────────────────────
+// Community kind stored as string: DEPARTMENT | SUBJECT | INTEREST | OFFICIAL
+
+model Community {
+  id          String        @id @default(cuid())
+  campusId    Int
+  campus      Campus        @relation(fields: [campusId], references: [id])
+  name        String
+  slug        String
+  description String?
+  kind        String        @default("INTEREST") // DEPARTMENT | SUBJECT | INTEREST | OFFICIAL
+  createdAt   DateTime      @default(now())
+
+  posts       Post[]
+  memberships Membership[]
+
+  @@unique([campusId, slug])
+  @@index([campusId])
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id])
+  joinedAt    DateTime  @default(now())
+
+  @@unique([userId, communityId])
+}
+
+// ── Feed ─────────────────────────────────────────────────
+model Post {
+  id          String     @id @default(cuid())
+  campusId    Int
+  campus      Campus     @relation(fields: [campusId], references: [id])
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+  communityId String?
+  community   Community? @relation(fields: [communityId], references: [id])
+  body        String
+  imageUrl    String?
+  isRemoved   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+
+  comments Comment[]
+  likes    Like[]
+  reports  Report[]
+
+  @@index([campusId, createdAt])
+  @@index([communityId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  isRemoved Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+// ── Events ───────────────────────────────────────────────
+model Event {
+  id          String   @id @default(cuid())
+  campusId    Int
+  campus      Campus   @relation(fields: [campusId], references: [id])
+  creatorId   String
+  creator     User     @relation("EventCreator", fields: [creatorId], references: [id])
+  title       String
+  description String?
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  rsvps Rsvp[]
+
+  @@index([campusId, startsAt])
+}
+
+model Rsvp {
+  id       String   @id @default(cuid())
+  eventId  String
+  event    Event    @relation(fields: [eventId], references: [id])
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  goingAt  DateTime @default(now())
+
+  @@unique([eventId, userId])
+}
+
+// ── Moderation ───────────────────────────────────────────
+// Report status stored as string: OPEN | REVIEWED | ACTIONED | DISMISSED
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reporter   User         @relation("Reporter", fields: [reporterId], references: [id])
+  postId     String?
+  post       Post?        @relation(fields: [postId], references: [id])
+  reason     String
+  details    String?
+  status     String       @default("OPEN") // OPEN | REVIEWED | ACTIONED | DISMISSED
+  createdAt  DateTime     @default(now())
+
+  @@index([status])
+}
