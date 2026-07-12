@@ -77,9 +77,11 @@ async function main() {
 
   let added = 0;
   for (let i = 0; i < DEMO_POSTS.length; i++) {
-    const marker = `<!-- demo:${i} -->`;
+    const body = DEMO_POSTS[i];
+    // Idempotency check on the clean body so we don't re-seed on re-run,
+    // but the visible body stays clean (no <!-- demo:N --> leakage).
     const exists = await prisma.post.findFirst({
-      where: { campusId: srm.id, body: { contains: marker } },
+      where: { campusId: srm.id, body },
       select: { id: true },
     });
     if (exists) continue;
@@ -87,7 +89,7 @@ async function main() {
       data: {
         campusId: srm.id,
         authorId: users[i % users.length].id,
-        body: `${DEMO_POSTS[i]}\n${marker}`,
+        body,
       },
     });
     added++;
