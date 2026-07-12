@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -31,9 +32,7 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-10">
       <div className="card p-8 w-full max-w-md">
-        <div className="text-3xl font-bold mb-1">
-          Cam<span style={{ color: "var(--accent)" }}>Pulse</span>
-        </div>
+        <BrandLogo height={32} className="mb-1" />
         <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
           Almost there. Add your display name and a few details.
         </p>

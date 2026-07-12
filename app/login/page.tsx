@@ -2,6 +2,7 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BrandLogo } from "@/components/BrandLogo";
 
 function LoginInner() {
   const router = useRouter();
@@ -78,9 +79,7 @@ function LoginInner() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="card p-8 w-full max-w-md">
-        <div className="text-3xl font-bold mb-1">
-          Cam<span style={{ color: "var(--accent)" }}>Pulse</span>
-        </div>
+        <BrandLogo height={34} className="mb-3" />
         <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
           {mode === "password"
             ? "Sign in with your email or @username + password."

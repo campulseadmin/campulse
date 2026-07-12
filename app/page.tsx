@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -9,9 +10,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-      <div className="text-5xl font-bold tracking-tight">
-        Cam<span style={{ color: "var(--accent)" }}>Pulse</span>
-      </div>
+      <BrandLogo height={48} priority />
       <p className="mt-4 text-lg" style={{ color: "var(--muted)" }}>
         The pulse of your campus. Everything, in one place.
       </p>

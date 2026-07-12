@@ -5,6 +5,10 @@ import { Providers } from "./providers";
 export const metadata: Metadata = {
   title: "CamPulse — the pulse of your campus",
   description: "Everything your campus, in one place.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/brand/campulse-icon.png",
+  },
 };
 
 export default function RootLayout({

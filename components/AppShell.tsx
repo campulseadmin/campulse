@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { SignOutButton } from "@/app/dashboard/signout";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface Me { username: string | null; displayName: string; initial: string; role?: string; }
 interface Comm { id: string; name: string; description: string | null; }
@@ -36,7 +37,9 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
     <div className="min-h-screen max-w-[1265px] mx-auto flex">
       {/* LEFT NAV */}
       <nav className="hidden sm:flex flex-col sticky top-0 h-screen w-[68px] xl:w-[275px] px-2 xl:px-4 py-2 border-r" style={{ borderColor: "var(--border)" }}>
-        <div className="text-3xl font-black px-3 py-3" style={{ color: "var(--accent)" }}>𝕏</div>
+        <div className="px-3 py-3 flex items-center">
+          <BrandLogo height={26} priority />
+        </div>
         {tab("home", "🏠", "Home", "/dashboard")}
         <a className="tw-navitem" href="/events"><span>📅</span><span className="hidden xl:inline">Events</span></a>
         {tab("explore", "🔍", "Explore")}

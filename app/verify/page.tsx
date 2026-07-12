@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function VerifyPage() {
   const router = useRouter();
@@ -51,9 +52,7 @@ export default function VerifyPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="card p-8 w-full max-w-md">
-        <div className="text-3xl font-bold mb-1">
-          Cam<span style={{ color: "var(--accent)" }}>Pulse</span>
-        </div>
+        <BrandLogo height={32} />
 
         {step === "code" ? (
           <>
