@@ -27,6 +27,12 @@ export async function POST(
   } else {
     await prisma.like.create({ data: { postId, userId: me.id } });
     liked = true;
+    // notify the post author (skip self + blocked)
+    if (post.authorId !== me.id) {
+      await prisma.notification.create({
+        data: { userId: post.authorId, type: "LIKE", actorId: me.id, postId },
+      }).catch(() => {});
+    }
   }
 
   const likeCount = await prisma.like.count({ where: { postId } });

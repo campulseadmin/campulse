@@ -32,16 +32,47 @@ export async function GET(req: Request) {
 
   const sp = new URL(req.url).searchParams;
   const sort = sp.get("sort") === "top" ? "top" : "latest";
+  const mode = sp.get("mode") === "following" ? "following" : "all";
   const limit = Math.min(parseInt(sp.get("limit") || "", 10) || PAGE, 50);
   const cursor = sp.get("cursor");
 
+  // Personalization: who/what to hide from this user's feed.
+  const [following, mutes, blocks, hidden] = await Promise.all([
+    prisma.follow.findMany({ where: { followerId: me.id }, select: { followingId: true } }),
+    prisma.mute.findMany({ where: { userId: me.id }, select: { kind: true, value: true } }),
+    prisma.block.findMany({ where: { OR: [{ blockerId: me.id }, { blockedId: me.id }] }, select: { blockerId: true, blockedId: true } }),
+    prisma.hiddenPost.findMany({ where: { userId: me.id }, select: { postId: true } }),
+  ]);
+  const followingIds = following.map((f) => f.followingId);
+  const blockedIds = blocks.flatMap((b) => [b.blockerId, b.blockedId]);
+  const mutedUserIds = mutes.filter((m) => m.kind === "USER").map((m) => m.value);
+  const mutedTags = mutes.filter((m) => m.kind === "HASHTAG").map((m) => m.value);
+  const mutedTopics = mutes.filter((m) => m.kind === "TOPIC").map((m) => m.value);
+  const hiddenIds = hidden.map((h) => h.postId);
+
+  const baseWhere: any = { campusId: me.campusId, isRemoved: false };
+  if (mode === "following") {
+    baseWhere.authorId = { in: [...followingIds, me.id] };
+  }
+  // hide blocked + muted users + hidden posts + my own muted topics/tags
+  baseWhere.AND = [
+    { authorId: { notIn: [...Array.from(blockedIds), ...Array.from(mutedUserIds)] } },
+    { id: { notIn: [...Array.from(hiddenIds)] } },
+  ];
+  if (mutedTags.length || mutedTopics.length) {
+    // if a post body contains a muted hashtag/topic, exclude it
+    const contains: any[] = [];
+    mutedTags.forEach((t) => contains.push({ body: { contains: `#${t}` } }));
+    mutedTopics.forEach((t) => contains.push({ body: { contains: t } }));
+    if (contains.length) baseWhere.AND.push({ NOT: { OR: contains } });
+  }
   let posts: any[];
   let nextCursor: string | null = null;
 
   if (sort === "top") {
     const skip = cursor ? parseInt(cursor, 10) : 0;
     posts = await prisma.post.findMany({
-      where: { campusId: me.campusId, isRemoved: false },
+      where: baseWhere,
       orderBy: [{ likes: { _count: "desc" } }, { createdAt: "desc" }],
       skip,
       take: limit + 1,
@@ -56,7 +87,7 @@ export async function GET(req: Request) {
     if (posts.length > limit) { posts.pop(); nextCursor = String(skip + limit); }
   } else {
     // Cursor pagination by (createdAt desc, id desc).
-    const where: any = { campusId: me.campusId, isRemoved: false };
+    const where: any = { ...baseWhere };
     if (cursor) {
       // cursor encodes createdAtISO|id
       const [ts, id] = cursor.split("|");

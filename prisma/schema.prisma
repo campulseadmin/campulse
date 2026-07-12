@@ -61,6 +61,19 @@ model User {
   reportsFiled     Report[]  @relation("Reporter")
   eventsCreated    Event[]   @relation("EventCreator")
 
+  // Social graph + moderation relations.
+  following        Follow[]  @relation("Follower")
+  followers        Follow[]  @relation("Following")
+  mutes            Mute[]
+  blocksAsBlocker  Block[]   @relation("Blocker")
+  blocksAsBlocked  Block[]   @relation("Blocked")
+  reposts          Repost[]
+  bookmarkCollections BookmarkCollection[]
+  notInterested    NotInterested[]
+  hiddenPosts      HiddenPost[]
+  notifications    Notification[] @relation("NotifUser")
+  notificationsAsActor Notification[] @relation("NotifActor")
+
   // Admin-approval requests this user has filed (they want to become an admin).
   adminRequests   AdminRequest[] @relation("Requester")
   // Admin-approval requests this user has reviewed (as an admin).
@@ -134,6 +147,8 @@ model Post {
   community   Community? @relation(fields: [communityId], references: [id])
   body        String
   imageUrl    String?
+  quotedId    String?    // original post when this is a quote-post
+  quoted      Post?      @relation("Quoted", fields: [quotedId], references: [id])
   isRemoved   Boolean    @default(false)
   editedAt    DateTime? // set when the author edits within the grace window
   createdAt   DateTime   @default(now())
@@ -142,6 +157,12 @@ model Post {
   likes    Like[]
   reports  Report[]
   bookmarks Bookmark[]
+  reposts  Repost[]
+  quotedBy Post[]     @relation("Quoted")
+  notInterested NotInterested[]
+  hiddenBy HiddenPost[]
+  notifications Notification[] @relation("NotifPost")
+  pref     PostPref?
 
   @@index([campusId, createdAt])
   @@index([communityId])
@@ -181,27 +202,153 @@ model CommentLike {
 }
 
 // Saved posts (bookmarks).
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id])
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+// ── Social graph & moderation ──────────────────────────
+// Follows a user (one-directional, like Twitter).
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("Follower", fields: [followerId], references: [id])
+  followingId String
+  following   User     @relation("Following", fields: [followingId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// Mute without blocking: user, hashtag (#tag), or topic (free-text keyword).
+model Mute {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  kind      String   @default("USER") // USER | HASHTAG | TOPIC
+  value     String   // target userId (USER) or lowercased tag/topic
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind, value])
+  @@index([userId])
+}
+
+// Hard block: neither side sees the other's posts in feeds.
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id])
+  blockedId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+// Per-post author preferences (pin, comments off).
+model PostPref {
+  postId        String  @id
+  post          Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  pinned        Boolean @default(false)
+  commentsOff   Boolean @default(false)
+}
+
+// Repost (share a post to your own timeline). kind REPOST | QUOTE.
+// For QUOTE, the new Post body carries the commentary and `quotedId` links back.
+model Repost {
+  id        String   @id @default(cuid())
+  postId    String   // the (quote) post the user created
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  sourceId  String   // the original post being reposted/quoted
+  kind      String   @default("REPOST") // REPOST | QUOTE
+  createdAt DateTime @default(now())
+
+  @@unique([userId, sourceId, kind])
+  @@index([sourceId])
+  @@index([userId])
+}
+
+// Bookmark collections (folders) — every user has an implicit "all" via Bookmark.
+model BookmarkCollection {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   // "Placement Prep", "Notes", "Events", "Funny"
+  createdAt DateTime @default(now())
+
+  bookmarks Bookmark[]
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// Bookmark now optionally lives in a collection.
 model Bookmark {
   id        String   @id @default(cuid())
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  collectionId String?
+  collection   BookmarkCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   @@unique([postId, userId])
   @@index([userId])
 }
 
-model Like {
+// Feed personalization signals.
+// NotInterested: "show me fewer like this" — feeds future recommendations.
+// Hidden: post removed from this user's view (soft, per-user).
+model NotInterested {
   id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id])
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
-  @@unique([postId, userId])
+  @@unique([userId, postId])
+  @@index([userId])
+}
+model HiddenPost {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+}
+
+// Notifications: like / comment / follow / repost / mention.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   // recipient
+  user      User     @relation("NotifUser", fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // LIKE | COMMENT | FOLLOW | REPOST | MENTION | ADMIN
+  actorId   String?  // who triggered it
+  actor     User?    @relation("NotifActor", fields: [actorId], references: [id])
+  postId    String?  // related post (if any)
+  post      Post?    @relation("NotifPost", fields: [postId], references: [id], onDelete: Cascade)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }
 
 // ── Events ───────────────────────────────────────────────

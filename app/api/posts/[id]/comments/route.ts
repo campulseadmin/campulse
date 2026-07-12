@@ -72,6 +72,13 @@ export async function POST(
     },
   });
 
+  // notify the post author of a new comment (skip self + blocked)
+  if (post.authorId !== me.id) {
+    await prisma.notification.create({
+      data: { userId: post.authorId, type: "COMMENT", actorId: me.id, postId: params.id },
+    }).catch(() => {});
+  }
+
   return NextResponse.json({
     ok: true,
     comment: {
