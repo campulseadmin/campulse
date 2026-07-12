@@ -125,6 +125,8 @@ export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id
   const [comments, setComments] = useState<Comment[]>([]);
   const [cbody, setCbody] = useState("");
   const [cloading, setCloading] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
   const n = name(post.author);
 
   async function openComments() {
@@ -180,6 +182,14 @@ export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id
             style={{ color: post.likedByMe ? "var(--like)" : "var(--muted)" }}>
             {post.likedByMe ? "♥" : "♡"} {post.likeCount}
           </button>
+          {!staticView && (
+            <button onClick={() => { setReportSent(false); setReporting(true); }} className="tw-ico" title="Report" style={{ position: "relative" }}>
+              ⚑ Report
+              {reportSent && (
+                <span className="text-[11px] ml-1" style={{ color: "var(--accent)" }}>✓ sent</span>
+              )}
+            </button>
+          )}
         </div>
 
         {open && (
@@ -205,7 +215,101 @@ export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id
             </form>
           </div>
         )}
+
+        {reporting && (
+          <ReportModal
+            postId={post.id}
+            onClose={() => setReporting(false)}
+            onSent={() => { setReportSent(true); setReporting(false); }}
+          />
+        )}
       </div>
     </article>
+  );
+}
+
+const REPORT_REASONS = [
+  { value: "spam", label: "Spam or misleading" },
+  { value: "harassment", label: "Harassment or bullying" },
+  { value: "hate", label: "Hate speech" },
+  { value: "misinformation", label: "Misinformation" },
+  { value: "nsfw", label: "NSFW / inappropriate" },
+  { value: "other", label: "Other" },
+];
+
+function ReportModal({ postId, onClose, onSent }: { postId: string; onClose: () => void; onSent: () => void }) {
+  const [reason, setReason] = useState("spam");
+  const [details, setDetails] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/posts/${postId}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, details: details.trim() || undefined }),
+      });
+      if (r.ok) onSent();
+      else alert("Could not submit report.");
+    } catch {
+      alert("Network error.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md p-5 rounded-2xl"
+        style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
+      >
+        <div className="font-bold text-[17px] mb-1">Report post</div>
+        <div className="text-[13px] mb-4" style={{ color: "var(--muted)" }}>
+          Your report is anonymous to the author and reviewed by campus moderators.
+        </div>
+
+        <div className="space-y-2 mb-4">
+          {REPORT_REASONS.map((r) => (
+            <label key={r.value} className="flex items-center gap-3 cursor-pointer text-[14px]">
+              <input
+                type="radio"
+                name="reason"
+                value={r.value}
+                checked={reason === r.value}
+                onChange={() => setReason(r.value)}
+              />
+              {r.label}
+            </label>
+          ))}
+        </div>
+
+        <textarea
+          className="input w-full"
+          style={{ borderRadius: 12, minHeight: 64 }}
+          placeholder="Add details (optional)"
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          maxLength={1000}
+        />
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button type="button" className="btn-ghost" style={{ borderRadius: 9999, padding: "8px 16px", fontWeight: 700 }} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn" style={{ borderRadius: 9999, padding: "8px 16px", fontWeight: 700 }} disabled={busy}>
+            {busy ? "Submitting…" : "Submit report"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

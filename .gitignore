@@ -39,3 +39,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# stray scraped/test pages
+sheerid_home.html

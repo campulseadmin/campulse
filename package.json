@@ -11,6 +11,8 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-events": "tsx prisma/seed-events.ts",
+    "db:seed-posts": "tsx prisma/seed-posts.ts",
+    "db:seed-all": "tsx prisma/seed.ts && tsx prisma/seed-posts.ts && tsx prisma/seed-events.ts",
     "vercel-build": "prisma generate && prisma db push --skip-generate && tsx prisma/seed.ts && tsx prisma/seed-events.ts && next build",
     "db:studio": "prisma studio"
   },
