@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { PostCard, avatarColor } from "@/app/dashboard/feed";
+import { PostCard } from "@/app/dashboard/feed";
+import { Avatar } from "@/components/Avatar";
 import { AppShell } from "@/components/AppShell";
 
 interface Author { username: string | null; displayName: string | null; avatarUrl: string | null; }
@@ -16,12 +17,14 @@ function ProfileInner({ handle }: { handle: string }) {
   const [user, setUser] = useState<{
     username: string; displayName: string | null; bio: string | null;
     dept: string | null; batch: string | null; campusShort: string;
-    createdAt: string; postCount: number;
+    createdAt: string; postCount: number; avatarUrl: string | null;
   } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tab, setTab] = useState<"posts" | "media" | "likes">("posts");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [isMe, setIsMe] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true); setErr("");
@@ -35,11 +38,32 @@ function ProfileInner({ handle }: { handle: string }) {
       .finally(() => setLoading(false));
   }, [handle]);
 
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/sidebar").then((r) => r.json()).then((d) => {
+      if (d.me) setIsMe(d.me.username === user.username);
+    }).catch(() => {});
+  }, [user?.username]);
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setPhotoBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const r = await fetch("/api/avatar", { method: "POST", body: fd });
+      const d = await r.json();
+      if (r.ok && d.avatarUrl) {
+        setUser((u) => (u ? { ...u, avatarUrl: d.avatarUrl } : u));
+      }
+    } catch { /* ignore */ }
+    finally { setPhotoBusy(false); }
+  }
+
   if (loading) return <p className="text-center text-sm p-8" style={{ color: "var(--muted)" }}>Loading…</p>;
   if (err || !user) return <p className="text-center text-sm p-8" style={{ color: "var(--muted)" }}>{err || "User not found."}</p>;
 
-  const initial = (user.displayName || user.username || "U").charAt(0).toUpperCase();
-  const col = avatarColor(user.username);
   const joined = new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   return (
@@ -47,12 +71,20 @@ function ProfileInner({ handle }: { handle: string }) {
       <div style={{ height: 200, background: "linear-gradient(120deg, var(--accent), #7856ff)" }} />
       <div className="max-w-[600px] mx-auto px-4" style={{ marginTop: -64 }}>
         <div className="flex items-end justify-between">
-          <div
-            className="rounded-full flex items-center justify-center font-bold text-white text-4xl"
-            style={{ width: 128, height: 128, background: col, border: "4px solid var(--bg)" }}
-          >
-            {initial}
-          </div>
+          <label style={{ cursor: isMe ? "pointer" : "default", position: "relative", display: "inline-block" }}>
+            <Avatar src={user.avatarUrl} name={user.displayName || user.username} size={128} ring />
+            {isMe && (
+              <>
+                <input type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
+                <span
+                  className="absolute inset-0 flex items-center justify-center rounded-full text-white text-xs font-semibold"
+                  style={{ background: "rgba(0,0,0,0.45)" }}
+                >
+                  {photoBusy ? "Uploading…" : "Change"}
+                </span>
+              </>
+            )}
+          </label>
           <button className="btn w-24 mt-4" style={{ borderRadius: 9999 }} onClick={() => router.push("/dashboard")}>
             Done
           </button>

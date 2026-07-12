@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SignOutButton } from "@/app/dashboard/signout";
 import { BrandLogo } from "@/components/BrandLogo";
+import { Avatar } from "@/components/Avatar";
 
-interface Me { username: string | null; displayName: string; initial: string; role?: string; }
+interface Me { username: string | null; displayName: string; initial: string; role?: string; avatarUrl?: string | null; }
 interface Comm { id: string; name: string; description: string | null; }
 interface Hot { posts: { id: string; body: string; likeCount: number; author: { username: string | null; displayName: string | null } }[]; events: { id: string; title: string; rsvpCount: number }[]; }
 
@@ -61,9 +62,7 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
         <button className="tw-postbtn hidden xl:block">Post</button>
         <div className="mt-auto flex items-center justify-between p-3 rounded-full hover:bg-white/5 cursor-pointer">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="tw-avatar" style={{ background: "var(--accent)", width: 40, height: 40 }}>
-              {me ? me.initial : "?"}
-            </div>
+            <Avatar src={me?.avatarUrl} name={me?.displayName || me?.username || "?"} size={40} ring />
             <div className="hidden xl:block min-w-0">
               <div className="font-bold text-[15px] truncate">{me ? me.displayName : ""}</div>
               <div className="text-[13px] truncate" style={{ color: "var(--muted)" }}>@{me ? me.username : ""}</div>

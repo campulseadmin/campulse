@@ -25,7 +25,7 @@ export async function GET() {
   const initial = (me.displayName || me.username || "U").charAt(0).toUpperCase();
 
   return NextResponse.json({
-    me: { username: me.username, displayName: name, initial, role: me.role },
+    me: { username: me.username, displayName: name, initial, role: me.role, avatarUrl: me.avatarUrl },
     campus: { shortName: campus.shortName },
     communities,
     trending,

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { avatarColor } from "@/app/dashboard/feed";
+import { Avatar } from "@/components/Avatar";
 
 interface SP { id: string; body: string; createdAt: string; likeCount: number; commentCount: number; author: { username: string | null; displayName: string | null; avatarUrl: string | null }; }
 interface SU { id: string; username: string | null; displayName: string | null; avatarUrl: string | null; postCount: number; }
@@ -71,7 +71,7 @@ function SearchInner() {
         <div>
           {shownUsers.map((u) => (
             <a key={u.id} href={u.username ? `/u/@${u.username}` : "#"} className="tw-post p-4 flex gap-3 items-center hover:bg-white/5">
-              <div className="tw-avatar" style={{ background: avatarColor(name(u)) }}>{name(u).charAt(0).toUpperCase()}</div>
+              <Avatar src={u.avatarUrl} name={name(u)} size={44} />
               <div className="min-w-0">
                 <div className="font-bold text-[15px] truncate">{name(u)}</div>
                 <div className="text-[13px]" style={{ color: "var(--muted)" }}>@{u.username} · {u.postCount} posts</div>
@@ -80,7 +80,7 @@ function SearchInner() {
           ))}
           {shownPosts.map((p) => (
             <article key={p.id} className="tw-post p-4 flex gap-3">
-              <div className="tw-avatar" style={{ background: avatarColor(name(p.author)) }}>{name(p.author).charAt(0).toUpperCase()}</div>
+              <Avatar src={p.author.avatarUrl} name={name(p.author)} size={44} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1 text-[15px]">
                   {p.author.username ? (

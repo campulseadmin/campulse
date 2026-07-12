@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SignOutButton } from "@/app/dashboard/signout";
+import { Avatar } from "@/components/Avatar";
 
-interface Me { displayName: string; username: string | null; initial: string; }
+interface Me { displayName: string; username: string | null; initial: string; avatarUrl?: string | null; }
 
 const TABS = [
   { key: "users", label: "Users", href: "/admin" },
@@ -48,9 +49,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <Link href="/dashboard" className="text-[13px] hover:underline" style={{ color: "var(--muted)" }}>
             ← Back to app
           </Link>
-          <div className="tw-avatar" style={{ background: "var(--accent)", width: 32, height: 32, fontSize: 13 }}>
-            {me ? me.initial : "?"}
-          </div>
+          <Avatar src={me?.avatarUrl} name={me ? me.displayName : "?"} size={32} />
           <SignOutButton />
         </div>
       </header>

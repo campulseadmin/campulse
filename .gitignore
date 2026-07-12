@@ -42,3 +42,7 @@ next-env.d.ts
 
 # stray scraped/test pages
 sheerid_home.html
+
+# user-uploaded avatars (binary, not committed; keep folder via .gitkeep)
+/public/uploads/avatars/*
+!/public/uploads/avatars/.gitkeep

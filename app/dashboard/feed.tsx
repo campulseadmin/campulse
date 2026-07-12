@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-
+import { Avatar } from "@/components/Avatar";
 interface Author { username: string | null; displayName: string | null; avatarUrl: string | null; }
 interface Comment { id: string; body: string; createdAt: string; author: Author; }
 interface Post {
@@ -202,7 +202,7 @@ export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id
 
   return (
     <article className="tw-post p-4 flex gap-3">
-      <div className="tw-avatar" style={{ background: avatarColor(n) }}>{n.charAt(0).toUpperCase()}</div>
+      <Avatar src={post.author.avatarUrl} name={n} size={44} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1 text-[15px]">
           {post.author.username ? (
