@@ -12,24 +12,58 @@ Next.js 14 (App Router) + TypeScript + Prisma + NextAuth.
 > Prisma provider to `postgresql` and set `DATABASE_URL` — the schema is
 > otherwise identical. See `DEPLOY.md`.
 
-## What's built (V1 + Phase 2)
+## What's built
 
-- **Auth** — email+password **and** passwordless OTP, with a real inbox-ownership
-  gate (domain allowlist `@srmist.edu.in` **+** OTP proof). Role-gated
+Multi-tenant from day one (every entity carries `campusId`, SRM = 1).
+
+- **Auth** — email+password **and** passwordless OTP, with an inbox-ownership gate
+  (domain allowlist `@srmist.edu.in` **+** OTP proof). Role-gated
   (`STUDENT | MODERATOR | ADMIN`).
-- **Verification hardening (Phase 2)** — legacy `/api/signup` bypass removed;
-  OTP rate-limited (per-email + per-IP, 429 after 5/15m); enumeration-safe;
-  constant-time code compare; password login rejects unverified accounts.
+- **Verification hardening** — legacy `/api/signup` bypass removed; OTP rate-limited
+  (per-email + per-IP, 429 after 5/15m); enumeration-safe; constant-time code
+  compare; password login rejects unverified accounts.
 - **Feed** — compose, like, nested comments + comment likes, edit (15-min window,
-  ✎ marker), soft-delete/recover, bookmarks + Saved tab, copy-link/share,
-  skeleton loaders, infinite scroll.
+  ✎ marker), soft-delete/recover, bookmarks + Saved tab, post detail page,
+  copy-link/share, skeleton loaders, infinite scroll, personalised feed
+  (following/all, hides blocked + muted + hidden posts).
 - **Profile** — Twitter-style (`/u/@handle`), 14-day handle-change rule, avatar
   upload, edit bio/dept/batch.
 - **Events** — curated SRM feed, student RSVP, owner-authenticated
   IG/Reddit ingest layer (failsafe → curated data).
+- **Social graph (API)** — follow/unfollow, mute (user/hashtag/topic),
+  block (mutual hide), repost/quote, notifications.
 - **Admin (role-gated)** — users (ban/role), reports (resolve/dismiss),
   events (create/approve), approval-gated admin access.
 - **Discovery** — hashtag/`@user` search, "What's hot in SRM" sidebar, trending.
+
+> **Status:** V1 + Phase 1 (post engagement) + Phase 2 (verification hardening)
+> + Phase 3 (social-graph API) are built, committed, and runtime-verified.
+> Next: Phase 4 — social-graph UI (3-dot menus, notifications page, repost/quote
+> modals, feed controls).
+
+## Build process & history
+
+The project was initiated by Abdul Rahman ([@theabdlrah](https://github.com/theabdlrah),
+[LinkedIn](https://www.linkedin.com/in/theabdlrah/)) and built localhost-first with
+Next.js 14 + TypeScript + Prisma + NextAuth. The path from idea to current state
+included deliberate wrong turns that shaped the architecture:
+
+- **Renamed SRM_One → CamPulse** — the working name had to signal "any campus,"
+  not one institution, to match the multi-tenant goal.
+- **Rejected the SRM-Academia portal proxy** — it returns HTML, not JSON, and is a
+  security risk. Verification is email-OTP only.
+- **Reverted a Vercel/Postgres attempt** — SQLite can't persist on Vercel's
+  ephemeral filesystem and there was no hosted DB; we parked deploy and kept SQLite
+  for zero-setup local dev (schema is portable to Postgres).
+- **Rebuilt Events ingestion** — unauthenticated Reddit/IG scraping is bot-blocked
+  (403); the feature is now curated seed data + optional owner-authenticated
+  ingestion with a graceful failsafe.
+- **Fixed a feed self-censorship bug** — blocking a user previously hid the
+  viewer's *own* posts (the feed flattened both sides of each Block row). Corrected
+  to hide only the other party. See commit `dfbc6c5`.
+
+Lesson baked in: a green `npm run build` proves it compiles, not that it's correct —
+every endpoint is exercised at runtime before being called done.
 
 ## Quick start
 
