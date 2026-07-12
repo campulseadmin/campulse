@@ -12,6 +12,14 @@ function hashCode(code: string): string {
   return crypto.createHmac("sha256", secret).update(code).digest("hex");
 }
 
+/** Constant-time string comparison (avoids timing leaks on the code hash). */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
 /** Create + store a fresh OTP for an email, returning the plaintext code. */
 export async function issueOtp(email: string): Promise<string> {
   const code = generateCode();
@@ -37,7 +45,7 @@ export async function checkOtp(email: string, code: string): Promise<boolean> {
     orderBy: { createdAt: "desc" },
   });
   if (!rec) return false;
-  return rec.codeHash === hashCode(code);
+  return safeEqual(rec.codeHash, hashCode(code));
 }
 
 /** Verify a submitted code; consumes it on success. */
@@ -47,7 +55,7 @@ export async function verifyOtp(email: string, code: string): Promise<boolean> {
     orderBy: { createdAt: "desc" },
   });
   if (!rec) return false;
-  if (rec.codeHash !== hashCode(code)) return false;
+  if (!safeEqual(rec.codeHash, hashCode(code))) return false;
   await prisma.otpCode.update({ where: { id: rec.id }, data: { consumed: true } });
   return true;
 }

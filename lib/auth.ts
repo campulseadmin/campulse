@@ -34,6 +34,9 @@ export const authOptions: NextAuthOptions = {
               where: { username: raw.replace(/^@/, "") },
             });
         if (!user || !user.passwordHash) return null;
+        // Reject password sign-in for accounts whose inbox was never verified.
+        // (OTP/passwordless login via /api/login-otp already enforces this.)
+        if (!user.emailVerified) return null;
 
         // Campus is fixed at signup; ensure the account still maps to a known campus.
         const campus = await prisma.campus.findUnique({ where: { id: user.campusId } });

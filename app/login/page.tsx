@@ -13,6 +13,7 @@ function LoginInner() {
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [msg, setMsg] = useState(params.get("verified") ? "Account created — sign in." : "");
+  const [devCode, setDevCode] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,6 +44,9 @@ function LoginInner() {
       if (!r.ok) { setErr(d.error || "Could not send code."); return; }
       setStep("code");
       setMsg("Code sent to your inbox. Enter the 6-digit code below.");
+      // Dev-only: EMAIL_MODE=console returns the code so you can sign in
+      // locally without a real inbox.
+      if (d.devCode) setDevCode(d.devCode);
     } catch { setErr("Network error."); }
     finally { setLoading(false); }
   }
@@ -117,6 +121,11 @@ function LoginInner() {
           </form>
         ) : (
           <form onSubmit={submitCode} className="space-y-3">
+            {devCode && (
+              <div className="p-3 rounded-lg text-sm" style={{ background: "rgba(29,155,240,0.12)", color: "var(--accent)" }}>
+                Dev mode — your code is <b>{devCode}</b>
+              </div>
+            )}
             <input
               className="input" type="text" inputMode="numeric" placeholder="6-digit code"
               value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}

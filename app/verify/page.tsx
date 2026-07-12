@@ -12,11 +12,12 @@ export default function VerifyPage() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
+  const [devCode, setDevCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
-    setErr(""); setMsg(""); setLoading(true);
+    setErr(""); setMsg(""); setDevCode(null); setLoading(true);
     try {
       const r = await fetch("/api/otp", {
         method: "POST",
@@ -26,7 +27,10 @@ export default function VerifyPage() {
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Could not send code."); return; }
       setStep("setup");
-      setMsg("Code sent to your inbox. Check your email.");
+      setMsg("");
+      // Dev-only: when running locally with EMAIL_MODE=console, the server
+      // returns the code so you can complete the flow without a real inbox.
+      if (d.devCode) setDevCode(d.devCode);
     } catch { setErr("Network error."); }
     finally { setLoading(false); }
   }
@@ -74,6 +78,11 @@ export default function VerifyPage() {
             <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
               We sent a 6-digit code to <b>{email}</b>. Enter it, then set your handle & password.
             </p>
+            {devCode && (
+              <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: "rgba(29,155,240,0.12)", color: "var(--accent)" }}>
+                Dev mode — your code is <b>{devCode}</b>
+              </div>
+            )}
             <form onSubmit={finish} className="space-y-3">
               <input
                 className="input" type="text" inputMode="numeric" placeholder="6-digit code"
