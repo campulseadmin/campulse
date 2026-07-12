@@ -1,18 +1,20 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SignOutButton } from "@/app/dashboard/signout";
 import { BrandLogo } from "@/components/BrandLogo";
 
 interface Me { username: string | null; displayName: string; initial: string; role?: string; }
 interface Comm { id: string; name: string; description: string | null; }
+interface Hot { posts: { id: string; body: string; likeCount: number; author: { username: string | null; displayName: string | null } }[]; events: { id: string; title: string; rsvpCount: number }[]; }
 
 export function AppShell({ children, active }: { children: React.ReactNode; active?: "home" | "profile" | "explore" }) {
+  const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [campus, setCampus] = useState<{ shortName: string }>({ shortName: "" });
   const [communities, setCommunities] = useState<Comm[]>([]);
-  const [trending, setTrending] = useState<Comm[]>([]);
-  const [postCount, setPostCount] = useState(0);
-  const [eventCount, setEventCount] = useState(0);
+  const [hot, setHot] = useState<Hot>({ posts: [], events: [] });
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     fetch("/api/sidebar").then((r) => r.json()).then((d) => {
@@ -20,12 +22,18 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
         setMe(d.me);
         setCampus(d.campus);
         setCommunities(d.communities || []);
-        setTrending(d.trending || []);
-        setPostCount(d.postCount || 0);
-        setEventCount(d.eventCount || 0);
       }
     }).catch(() => {});
+    fetch("/api/trending").then((r) => r.json()).then((d) => {
+      if (!d.error) setHot({ posts: d.posts || [], events: d.events || [] });
+    }).catch(() => {});
   }, []);
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const term = q.trim();
+    if (term) router.push(`/search?q=${encodeURIComponent(term)}`);
+  }
 
   const tab = (key: string, icon: string, label: string, href?: string) => {
     const cls = `tw-navitem ${active === key ? "active" : ""}`;
@@ -42,7 +50,7 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
         </div>
         {tab("home", "🏠", "Home", "/dashboard")}
         <a className="tw-navitem" href="/events"><span>📅</span><span className="hidden xl:inline">Events</span></a>
-        {tab("explore", "🔍", "Explore")}
+        <a className="tw-navitem" href="/search"><span>🔍</span><span className="hidden xl:inline">Explore</span></a>
         <a className="tw-navitem"><span>🔔</span><span className="hidden xl:inline">Notifications</span></a>
         <a className="tw-navitem"><span>✉️</span><span className="hidden xl:inline">Messages</span></a>
         {tab("profile", "👤", "Profile", me?.username ? `/u/@${me.username}` : "/dashboard")}
@@ -70,21 +78,33 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
 
       {/* RIGHT SIDEBAR */}
       <aside className="hidden lg:block w-[350px] shrink-0 p-4 space-y-4">
-        <div className="tw-searchbar">
-          <input className="input" placeholder="🔍  Search CamPulse" />
-        </div>
+        <form className="tw-searchbar" onSubmit={submitSearch}>
+          <input className="input" placeholder="🔍  Search CamPulse" value={q} onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submitSearch(e as any); }} />
+        </form>
 
         <div className="tw-sidebarbox">
-          <div className="p-4 font-bold text-[20px]">What&apos;s happening · {campus.shortName}</div>
-          {trending.length === 0 ? (
-            <div className="px-4 pb-4 text-[14px]" style={{ color: "var(--muted)" }}>Communities will appear here.</div>
-          ) : trending.map((c) => (
-            <div key={c.id} className="tw-trend">
-              <div className="text-[13px]" style={{ color: "var(--muted)" }}>Campus · Community</div>
-              <div className="font-bold text-[15px]">{c.name}</div>
-              <div className="text-[13px]" style={{ color: "var(--muted)" }}>{c.description}</div>
+          <div className="p-4 font-bold text-[20px]">What&apos;s hot in {campus.shortName || "SRM"} 🔥</div>
+          {hot.posts.length === 0 && hot.events.length === 0 ? (
+            <div className="px-4 pb-4 text-[14px]" style={{ color: "var(--muted)" }}>Trending posts & events appear here.</div>
+          ) : (
+            <div className="pb-2">
+              {hot.posts.map((p) => (
+                <a key={p.id} href={p.author.username ? `/u/@${p.author.username}` : "#"} className="tw-trend block hover:bg-white/5">
+                  <div className="text-[13px]" style={{ color: "var(--muted)" }}>
+                    {p.author.username ? `@${p.author.username}` : (p.author.displayName || "Someone")} · ❤️ {p.likeCount}
+                  </div>
+                  <div className="text-[15px] font-semibold truncate">{p.body}</div>
+                </a>
+              ))}
+              {hot.events.map((e) => (
+                <a key={e.id} href="/events" className="tw-trend block hover:bg-white/5">
+                  <div className="text-[13px]" style={{ color: "var(--muted)" }}>📅 Event · {e.rsvpCount} going</div>
+                  <div className="text-[15px] font-semibold truncate">{e.title}</div>
+                </a>
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
         <div className="tw-sidebarbox p-4">
@@ -101,10 +121,6 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
           {communities.length === 0 && (
             <div className="text-[14px]" style={{ color: "var(--muted)" }}>No communities yet.</div>
           )}
-        </div>
-
-        <div className="text-[13px] px-2" style={{ color: "var(--muted)" }}>
-          CamPulse · Campus super-app · {postCount} posts · {eventCount} events
         </div>
       </aside>
     </div>

@@ -33,17 +33,35 @@ export function Feed() {
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [err, setErr] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (reset = true) => {
+    if (reset) setLoading(true);
     try {
       const r = await fetch(`/api/posts?sort=${sort}`);
       const d = await r.json();
-      if (r.ok) setPosts(d.posts);
+      if (r.ok) { setPosts(d.posts); setNextCursor(d.nextCursor ?? null); setHasMore(!!d.nextCursor); }
     } catch { /* ignore */ }
-    finally { setLoading(false); }
+    finally { if (reset) setLoading(false); }
   }, [sort]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !nextCursor || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const r = await fetch(`/api/posts?sort=${sort}&cursor=${encodeURIComponent(nextCursor)}`);
+      const d = await r.json();
+      if (r.ok) {
+        setPosts((ps) => [...ps, ...d.posts]);
+        setNextCursor(d.nextCursor ?? null);
+        setHasMore(!!d.nextCursor);
+      }
+    } catch { /* ignore */ }
+    finally { setLoadingMore(false); }
+  }, [loadingMore, nextCursor, hasMore, sort]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -60,8 +78,19 @@ export function Feed() {
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Could not post."); return; }
       setBody("");
-      if (sort === "top") setSort("latest");
-      load();
+      // Prepend the new post locally instead of reloading the whole feed.
+      if (sort === "top") { setSort("latest"); }
+      else {
+        const meR = await fetch("/api/sidebar").then((x) => x.json()).catch(() => null);
+        const me = meR?.me;
+        const np: Post = {
+          id: d.id, body: text, imageUrl: null,
+          createdAt: new Date().toISOString(),
+          author: { username: me?.username ?? null, displayName: me?.displayName ?? "You", avatarUrl: null },
+          community: null, likeCount: 0, commentCount: 0, likedByMe: false,
+        };
+        setPosts((ps) => [np, ...ps]);
+      }
     } catch { setErr("Network error."); }
     finally { setPosting(false); }
   }
@@ -114,6 +143,21 @@ export function Feed() {
       ) : (
         <div>
           {posts.map((p) => <PostCard key={p.id} post={p} onLike={toggleLike} />)}
+          {hasMore && (
+            <div ref={(el) => {
+              if (!el) return;
+              const io = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting) loadMore();
+              }, { rootMargin: "300px" });
+              io.observe(el);
+              return () => io.disconnect();
+            }} className="text-center text-sm" style={{ color: "var(--muted)", padding: 24 }}>
+              {loadingMore ? "Loading more…" : "Scroll for more"}
+            </div>
+          )}
+          {!hasMore && posts.length > 0 && (
+            <div className="text-center text-sm" style={{ color: "var(--muted)", padding: 24 }}>You're all caught up ✦</div>
+          )}
         </div>
       )}
     </section>

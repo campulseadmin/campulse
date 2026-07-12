@@ -26,24 +26,42 @@ const SRC_BADGE: Record<string, string> = {
 export default function EventsPage() {
   const [events, setEvents] = useState<Ev[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [err, setErr] = useState("");
   const [role, setRole] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (reset = true) => {
+    if (reset) setLoading(true);
     try {
       const r = await fetch("/api/events");
       const d = await r.json();
-      if (r.ok) setEvents(d.events);
+      if (r.ok) { setEvents(d.events); setNextCursor(d.nextCursor ?? null); setHasMore(!!d.nextCursor); }
       else setErr(d.error || "Failed to load events.");
     } catch {
       setErr("Network error.");
     } finally {
-      setLoading(false);
+      if (reset) setLoading(false);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !nextCursor || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const r = await fetch(`/api/events?cursor=${encodeURIComponent(nextCursor)}`);
+      const d = await r.json();
+      if (r.ok) {
+        setEvents((es) => [...es, ...d.events]);
+        setNextCursor(d.nextCursor ?? null);
+        setHasMore(!!d.nextCursor);
+      }
+    } catch { /* ignore */ }
+    finally { setLoadingMore(false); }
+  }, [loadingMore, nextCursor, hasMore]);
 
   useEffect(() => {
     fetch("/api/sidebar").then((r) => r.json()).then((d) => {
@@ -152,6 +170,21 @@ export default function EventsPage() {
               </div>
             </article>
           ))}
+          {hasMore && (
+            <div ref={(el) => {
+              if (!el) return;
+              const io = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting) loadMore();
+              }, { rootMargin: "300px" });
+              io.observe(el);
+              return () => io.disconnect();
+            }} className="text-center text-sm" style={{ color: "var(--muted)", padding: 24 }}>
+              {loadingMore ? "Loading more…" : "Scroll for more"}
+            </div>
+          )}
+          {!hasMore && events.length > 0 && (
+            <div className="text-center text-sm" style={{ color: "var(--muted)", padding: 24 }}>That's all the events ✦</div>
+          )}
         </div>
       )}
     </AppShell>

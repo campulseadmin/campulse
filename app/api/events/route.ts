@@ -48,11 +48,30 @@ export async function GET(req: Request) {
     }
   }
 
+  const limit = Math.min(parseInt(new URL(req.url).searchParams.get("limit") || "", 10) || 12, 50);
+  const cursor = new URL(req.url).searchParams.get("cursor");
+
+  const where: any = { campusId: me.campusId, isApproved: true };
+  if (cursor) {
+    const [ts, id] = cursor.split("|");
+    where.OR = [
+      { startsAt: { gt: new Date(ts) } },
+      { startsAt: new Date(ts), id: { gt: id } },
+    ];
+  }
+
   const events = await prisma.event.findMany({
-    where: { campusId: me.campusId, isApproved: true },
-    orderBy: { startsAt: "asc" },
+    where,
+    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+    take: limit + 1,
     include: { _count: { select: { rsvps: true } }, rsvps: { where: { userId: me.id }, select: { id: true } } },
   });
+
+  let nextCursor: string | null = null;
+  if (events.length > limit) {
+    const last = events.pop()!;
+    nextCursor = `${last.startsAt.toISOString()}|${last.id}`;
+  }
 
   // Shape to the client contract (rsvpCount + rsvpByMe), independent of _count.
   const shaped = events.map((e) => ({
@@ -63,5 +82,5 @@ export async function GET(req: Request) {
     _count: undefined,
   }));
 
-  return NextResponse.json({ events: shaped, ingested });
+  return NextResponse.json({ events: shaped, nextCursor, ingested });
 }
