@@ -44,7 +44,9 @@ export async function GET(req: Request) {
     prisma.hiddenPost.findMany({ where: { userId: me.id }, select: { postId: true } }),
   ]);
   const followingIds = following.map((f) => f.followingId);
-  const blockedIds = blocks.flatMap((b) => [b.blockerId, b.blockedId]);
+  // Hide the *other* party in every block row (mutual hide), never `me`.
+  // (blockerId === me.id → blockedId is the user to hide; else blockerId is.)
+  const blockedIds = blocks.map((b) => (b.blockerId === me.id ? b.blockedId : b.blockerId));
   const mutedUserIds = mutes.filter((m) => m.kind === "USER").map((m) => m.value);
   const mutedTags = mutes.filter((m) => m.kind === "HASHTAG").map((m) => m.value);
   const mutedTopics = mutes.filter((m) => m.kind === "TOPIC").map((m) => m.value);
