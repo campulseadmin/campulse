@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CamPulse
 
-## Getting Started
+**The pulse of your campus. Everything, in one place.**
 
-First, run the development server:
+Multi-tenant campus super-app (SRM = campus 1). Built localhost-first with
+Next.js 14 (App Router) + TypeScript + Prisma + NextAuth.
+
+> Runs on `npm run dev` with **zero setup** (SQLite). For deploy, swap the
+> Prisma provider to `postgresql` and set `DATABASE_URL` — the schema is
+> otherwise identical. See `DEPLOY.md`.
+
+## What's built (V1 + Phase 2)
+
+- **Auth** — email+password **and** passwordless OTP, with a real inbox-ownership
+  gate (domain allowlist `@srmist.edu.in` **+** OTP proof). Role-gated
+  (`STUDENT | MODERATOR | ADMIN`).
+- **Verification hardening (Phase 2)** — legacy `/api/signup` bypass removed;
+  OTP rate-limited (per-email + per-IP, 429 after 5/15m); enumeration-safe;
+  constant-time code compare; password login rejects unverified accounts.
+- **Feed** — compose, like, nested comments + comment likes, edit (15-min window,
+  ✎ marker), soft-delete/recover, bookmarks + Saved tab, copy-link/share,
+  skeleton loaders, infinite scroll.
+- **Profile** — Twitter-style (`/u/@handle`), 14-day handle-change rule, avatar
+  upload, edit bio/dept/batch.
+- **Events** — curated SRM feed, student RSVP, owner-authenticated
+  IG/Reddit ingest layer (failsafe → curated data).
+- **Admin (role-gated)** — users (ban/role), reports (resolve/dismiss),
+  events (create/approve), approval-gated admin access.
+- **Discovery** — hashtag/`@user` search, "What's hot in SRM" sidebar, trending.
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd campulse
+npm install        # first time only
+npm run dev        # → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Demo logins (password `demo1234`): `aarav.cse` (ADMIN), `meera.aiml`,
+`karthik.ece`, `sara.design`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project layout
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/            routes (feed, profile, events, admin, auth, api/*)
+components/     AppShell, AdminShell, Avatar, BrandLogo
+lib/            auth, otp, email, password, prisma, session
+prisma/         schema.prisma, migrations, seed scripts
+```
 
-## Learn More
+## Email / OTP
 
-To learn more about Next.js, take a look at the following resources:
+- Default dev mode (`EMAIL_MODE=console`) prints the OTP to the terminal **and**
+  surfaces it on-screen so you can complete signup without a real inbox.
+- For production deliverability, set `EMAIL_MODE=smtp` (or Resend/Postmark) + a
+  verified domain. See `CampPulse-email-verification-brief.md` on the Desktop.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Hard rules (architecture)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Multi-tenant from day one: `campusId` on every entity. No cross-campus leakage.
+- The SRM-Academia proxy (`campusweb.in`) is **rejected** — it breaks (returns
+  HTML, not JSON). CamPulse never depends on it.
+- `.env` is gitignored (never committed). `npm run build` is the authoritative
+  type-check.
 
-## Deploy on Vercel
+## Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| command | what it does |
+|---|---|
+| `npm run dev` | dev server on :3000 |
+| `npm run build` | production build (authoritative type-check) |
+| `npm run db:seed` | seed campus + communities + admin |
+| `npm run db:seed-all` | seed posts + events too |
+| `npm run db:studio` | Prisma Studio |
