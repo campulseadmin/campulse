@@ -43,6 +43,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
   if (action === "role") {
+    if (role === "ADMIN") {
+      // Admin access is approval-gated: promo to ADMIN only via /api/admin/requests.
+      return NextResponse.json(
+        { error: "Admin access must be approved via an admin request." },
+        { status: 400 }
+      );
+    }
     if (!ROLES.has(role)) return NextResponse.json({ error: "Invalid role." }, { status: 400 });
     await prisma.user.update({ where: { id }, data: { role } });
     return NextResponse.json({ ok: true });

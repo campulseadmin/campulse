@@ -47,6 +47,7 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
         <a className="tw-navitem"><span>✉️</span><span className="hidden xl:inline">Messages</span></a>
         {tab("profile", "👤", "Profile", me?.username ? `/u/@${me.username}` : "/dashboard")}
         {me?.role === "ADMIN" && <a className="tw-navitem" href="/admin"><span>🛡</span><span className="hidden xl:inline">Admin</span></a>}
+        {me?.role !== "ADMIN" && <a className="tw-navitem" href="/admin"><span>➕</span><span className="hidden xl:inline">Request admin</span></a>}
         <a className="tw-navitem"><span>⚙️</span><span className="hidden xl:inline">Settings</span></a>
 
         <button className="tw-postbtn hidden xl:block">Post</button>

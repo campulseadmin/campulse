@@ -22,7 +22,9 @@ function LoginInner() {
     try {
       const res = await signIn("credentials", { identifier, password, redirect: false });
       if (res?.error) { setErr("Invalid email, username or password."); return; }
-      router.push("/dashboard");
+      // Admins land in the admin portal; everyone else goes to the feed.
+      const me = await fetch("/api/sidebar").then((r) => r.json()).catch(() => null);
+      router.push(me?.me?.role === "ADMIN" ? "/admin" : "/dashboard");
       router.refresh();
     } catch { setErr("Something went wrong."); }
     finally { setLoading(false); }
@@ -63,7 +65,8 @@ function LoginInner() {
         redirect: false,
       });
       if (res?.error) { setErr("Sign-in failed. Try password instead."); return; }
-      router.push("/dashboard");
+      const me = await fetch("/api/sidebar").then((r) => r.json()).catch(() => null);
+      router.push(me?.me?.role === "ADMIN" ? "/admin" : "/dashboard");
       router.refresh();
     } catch { setErr("Network error."); }
     finally { setLoading(false); }

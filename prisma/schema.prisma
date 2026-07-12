@@ -26,6 +26,7 @@ model Campus {
   communities Community[]
   posts       Post[]
   events      Event[]
+  adminRequests AdminRequest[]
 }
 
 // ── Users ────────────────────────────────────────────────
@@ -57,6 +58,11 @@ model User {
   memberships      Membership[]
   reportsFiled     Report[]  @relation("Reporter")
   eventsCreated    Event[]   @relation("EventCreator")
+
+  // Admin-approval requests this user has filed (they want to become an admin).
+  adminRequests   AdminRequest[] @relation("Requester")
+  // Admin-approval requests this user has reviewed (as an admin).
+  reviews         AdminRequest[] @relation("Reviewer")
 
   @@index([campusId])
   @@unique([campusId, username])
@@ -207,6 +213,28 @@ model Rsvp {
   goingAt  DateTime @default(now())
 
   @@unique([eventId, userId])
+}
+
+// ── Admin access (approval-gated) ───────────────────────────
+// A STUDENT requests admin access; an EXISTING ADMIN reviews & approves.
+// Only approved requests flip the requester's role to ADMIN. Direct ADMIN
+// assignment via the users endpoint is blocked — it must go through here.
+// status: PENDING | APPROVED | REJECTED
+model AdminRequest {
+  id        String   @id @default(cuid())
+  campusId  Int
+  campus    Campus   @relation(fields: [campusId], references: [id])
+  requesterId String
+  requester User     @relation("Requester", fields: [requesterId], references: [id])
+  reason    String?  // optional justification from the requester
+  status    String   @default("PENDING")
+  reviewedById   String? // admin who approved/rejected
+  reviewedBy     User?   @relation("Reviewer", fields: [reviewedById], references: [id])
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+
+  @@index([campusId, status])
+  @@index([requesterId])
 }
 
 // ── Moderation ───────────────────────────────────────────

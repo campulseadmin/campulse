@@ -1,30 +1,29 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { AppShell } from "@/components/AppShell";
+import { useSearchParams } from "next/navigation";
 
 interface U { id: string; username: string | null; displayName: string | null; email: string; role: string; isBanned: boolean; emailVerified: Date | null; createdAt: string; _count: { posts: number }; }
 interface R { id: string; reason: string; details: string | null; status: string; createdAt: string; reporter: { username: string | null; displayName: string | null }; post: { id: string; body: string; isRemoved: boolean } | null; }
 interface E { id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string | null; isApproved: boolean; _count: { rsvps: number }; }
 
-export function AdminPanel({ adminName }: { adminName: string }) {
-  const [tab, setTab] = useState<"users" | "reports" | "events">("users");
+export function AdminPanel({ adminName, initialTab = "users" }: { adminName: string; initialTab?: "users" | "reports" | "events" | "requests" }) {
+  const params = useSearchParams();
+  const tabParam = params.get("tab");
+  const tab: "users" | "reports" | "events" | "requests" =
+    tabParam === "reports" || tabParam === "events" || tabParam === "requests" ? tabParam : initialTab;
   return (
-    <AppShell active="home">
-      <div className="tw-header px-4 py-3">
+    <div>
+      <div className="px-4 py-3">
         <div className="text-xl font-bold">Admin · {adminName}</div>
         <div className="text-[13px]" style={{ color: "var(--muted)" }}>Campus moderation & management</div>
-      </div>
-      <div className="flex tw-header" style={{ position: "relative" }}>
-        <div className={`tw-tab ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>Users</div>
-        <div className={`tw-tab ${tab === "reports" ? "active" : ""}`} onClick={() => setTab("reports")}>Reports</div>
-        <div className={`tw-tab ${tab === "events" ? "active" : ""}`} onClick={() => setTab("events")}>Events</div>
       </div>
       <div className="p-4 pb-16">
         {tab === "users" && <UsersTab />}
         {tab === "reports" && <ReportsTab />}
         {tab === "events" && <EventsTab />}
+        {tab === "requests" && <RequestsTab />}
       </div>
-    </AppShell>
+    </div>
   );
 }
 
@@ -212,6 +211,80 @@ function EventsTab() {
         </div>
       ))}
       {events.length === 0 && <p className="text-sm" style={{ color: "var(--muted)" }}>No events yet.</p>}
+    </div>
+  );
+}
+
+interface AR {
+  id: string;
+  reason: string | null;
+  status: string;
+  createdAt: string;
+  reviewedAt: string | null;
+  requester: { id: string; username: string | null; displayName: string | null; email: string; role: string };
+}
+
+function RequestsTab() {
+  const [requests, setRequests] = useState<AR[]>([]);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState("");
+
+  const load = useCallback(async () => {
+    const r = await fetch("/api/admin/requests");
+    const d = await r.json();
+    if (r.ok) setRequests(d.requests); else setErr(d.error || "Failed.");
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function act(id: string, action: "approve" | "reject") {
+    setBusy(id + action); setErr("");
+    const r = await fetch("/api/admin/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    const d = await r.json();
+    setBusy("");
+    if (!r.ok) { setErr(d.error || "Failed."); return; }
+    load();
+  }
+
+  return (
+    <div className="space-y-2">
+      {err && <p className="text-sm" style={{ color: "#f87171" }}>{err}</p>}
+      {requests.map((r) => (
+        <div key={r.id} className="tw-post p-4">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-[15px]">
+              {r.requester.displayName || r.requester.username}
+            </span>
+            <span
+              className="text-[11px] px-2 py-0.5 rounded-full"
+              style={{
+                background: r.status === "PENDING" ? "rgba(255,212,0,0.15)" : r.status === "APPROVED" ? "rgba(0,186,124,0.15)" : "rgba(248,113,113,0.15)",
+                color: r.status === "PENDING" ? "#facc15" : r.status === "APPROVED" ? "#00ba7c" : "#f87171",
+              }}
+            >
+              {r.status}
+            </span>
+          </div>
+          <div className="text-[13px] mt-1" style={{ color: "var(--muted)" }}>
+            @{r.requester.username} · {r.requester.email}
+          </div>
+          {r.reason && <p className="text-[14px] mt-2 p-2 rounded" style={{ background: "var(--bg)" }}>“{r.reason}”</p>}
+          {r.status === "PENDING" && (
+            <div className="flex gap-2 mt-3">
+              <button className="btn" style={{ padding: "6px 14px" }} disabled={!!busy} onClick={() => act(r.id, "approve")}>
+                {busy === r.id + "approve" ? "…" : "Approve → make admin"}
+              </button>
+              <button className="btn-ghost" style={{ borderRadius: 9999, padding: "6px 14px", color: "#f87171" }} disabled={!!busy} onClick={() => act(r.id, "reject")}>
+                Reject
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+      {requests.length === 0 && <p className="text-sm" style={{ color: "var(--muted)" }}>No admin requests.</p>}
     </div>
   );
 }
