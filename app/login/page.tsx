@@ -122,7 +122,7 @@ function LoginInner() {
         ) : (
           <form onSubmit={submitCode} className="space-y-3">
             {devCode && (
-              <div className="p-3 rounded-lg text-sm" style={{ background: "rgba(29,155,240,0.12)", color: "var(--accent)" }}>
+              <div className="p-3 rounded-lg text-sm" style={{ background: "rgba(139,92,246,0.12)", color: "var(--accent)" }}>
                 Dev mode — your code is <b>{devCode}</b>
               </div>
             )}

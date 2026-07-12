@@ -14,7 +14,7 @@ interface Post {
 
 function name(a: Author) { return a.displayName || (a.username ? "@" + a.username : "Someone"); }
 
-const AVATAR_COLORS = ["#1d9bf0", "#f91880", "#00ba7c", "#ffd400", "#7856ff", "#ff7a00"];
+const AVATAR_COLORS = ["#8b5cf6", "#f91880", "#00ba7c", "#ffd400", "#7856ff", "#ff7a00"];
 
 export function avatarColor(name: string) {
   let h = 0;

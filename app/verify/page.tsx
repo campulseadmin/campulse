@@ -79,7 +79,7 @@ export default function VerifyPage() {
               We sent a 6-digit code to <b>{email}</b>. Enter it, then set your handle & password.
             </p>
             {devCode && (
-              <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: "rgba(29,155,240,0.12)", color: "var(--accent)" }}>
+              <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: "rgba(139,92,246,0.12)", color: "var(--accent)" }}>
                 Dev mode — your code is <b>{devCode}</b>
               </div>
             )}

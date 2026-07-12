@@ -8,12 +8,14 @@ r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
 lum = 0.299 * r + 0.587 * g + 0.114 * b
 
 # 1) Recolor the dark-grey "CAMP" -> app --fg white (#e7e9ea)
+#    and the blue "ULSE" -> app --accent purple (#8b5cf6).
 neutral = (np.abs(b - r) < 35) & (np.abs(g - r) < 35)
 bright = lum > 200
 blueish = (b - r) > 25
 grey = (lum > 35) & (lum < 160) & neutral & (~bright) & (~blueish)
 op = np.array(img).astype(np.uint8)
 op[grey] = [231, 233, 234]
+op[blueish] = [139, 92, 246]  # purple accent
 op_img = Image.fromarray(op)
 
 # 2) Alpha from the RECOLORED image: content = bright OR blueish.
