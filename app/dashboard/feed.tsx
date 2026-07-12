@@ -1,12 +1,15 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
 interface Author { username: string | null; displayName: string | null; avatarUrl: string | null; }
 interface Comment { id: string; body: string; createdAt: string; author: Author; }
 interface Post {
   id: string; body: string; imageUrl: string | null; createdAt: string;
+  editedAt?: string | null;
   author: Author; community: { name: string; slug: string } | null;
-  likeCount: number; commentCount: number; likedByMe: boolean;
+  likeCount: number; commentCount: number; likedByMe: boolean; bookmarkedByMe?: boolean;
+  isMine?: boolean;
 }
 
 function name(a: Author) { return a.displayName || (a.username ? "@" + a.username : "Someone"); }
@@ -135,7 +138,18 @@ export function Feed() {
       </div>
 
       {loading ? (
-        <p className="text-center text-sm" style={{ color: "var(--muted)", padding: 24 }}>Loading…</p>
+        <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+          {[0,1,2].map((i) => (
+            <div key={i} className="tw-post p-4 flex gap-3">
+              <div className="tw-avatar" style={{ background: "var(--bg)", width: 44, height: 44 }} />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 rounded" style={{ background: "var(--bg)", width: "40%" }} />
+                <div className="h-3 rounded" style={{ background: "var(--bg)", width: "90%" }} />
+                <div className="h-3 rounded" style={{ background: "var(--bg)", width: "70%" }} />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : posts.length === 0 ? (
         <div className="tw-post p-8 text-center" style={{ color: "var(--muted)" }}>
           No posts yet. Be the first to post!
@@ -165,13 +179,78 @@ export function Feed() {
 }
 
 export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id: string) => void; staticView?: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [cbody, setCbody] = useState("");
   const [cloading, setCloading] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportSent, setReportSent] = useState(false);
+  const [bookmarked, setBookmarked] = useState(post.bookmarkedByMe);
+  const [editing, setEditing] = useState(false);
+  const [editBody, setEditBody] = useState(post.body);
+  const [editBusy, setEditBusy] = useState(false);
+  const [removed, setRemoved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const n = name(post.author);
+
+  const canEdit = post.isMine && !post.editedAt &&
+    Date.now() - new Date(post.createdAt).getTime() <= 15 * 60 * 1000;
+  const canDelete = post.isMine;
+
+  async function toggleBookmark() {
+    setBookmarked((b) => !b);
+    try {
+      const r = await fetch(`/api/posts/${post.id}/bookmark`, { method: "POST" });
+      if (!r.ok) setBookmarked((b) => !b);
+    } catch { setBookmarked((b) => !b); }
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    const text = editBody.trim();
+    if (!text) return;
+    setEditBusy(true);
+    try {
+      const r = await fetch(`/api/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: text }),
+      });
+      if (r.ok) { post.body = text; post.editedAt = new Date().toISOString(); setEditing(false); }
+      else alert("Could not edit (15-min window may have passed).");
+    } catch { /* ignore */ }
+    finally { setEditBusy(false); }
+  }
+
+  async function delPost() {
+    if (!confirm("Delete this post? You can recover it later.")) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/posts/${post.id}`, { method: "DELETE" });
+      if (r.ok) setRemoved(true);
+    } finally { setBusy(false); }
+  }
+  async function recoverPost() {
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/posts/${post.id}/recover`, { method: "POST" });
+      if (r.ok) setRemoved(false);
+    } finally { setBusy(false); }
+  }
+
+  function copyLink() {
+    const url = `${location.origin}/post/${post.id}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {});
+  }
+  function share() {
+    const url = `${location.origin}/post/${post.id}`;
+    if (navigator.share) navigator.share({ title: "CamPulse", text: post.body, url }).catch(() => {});
+    else copyLink();
+  }
 
   async function openComments() {
     if (!open) {
@@ -200,6 +279,15 @@ export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id
     } catch { /* ignore */ }
   }
 
+  if (removed) {
+    return (
+      <article className="tw-post p-4 text-center" style={{ color: "var(--muted)" }}>
+        This post was deleted.{" "}
+        {canDelete && <button className="btn-ghost" style={{ borderRadius: 9999, padding: "4px 12px" }} onClick={recoverPost} disabled={busy}>Recover</button>}
+      </article>
+    );
+  }
+
   return (
     <article className="tw-post p-4 flex gap-3">
       <Avatar src={post.author.avatarUrl} name={n} size={44} />
@@ -212,27 +300,48 @@ export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id
           )}
           <span style={{ color: "var(--muted)" }}>
             {post.author.username ? <>@{post.author.username} · </> : null}{timeAgo(post.createdAt)}
+            {post.editedAt && <span title="Edited"> · ✎</span>}
           </span>
           {post.community ? (
             <span className="ml-1 text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--bg)", color: "var(--accent)", border: "1px solid var(--border)" }}>{post.community.name}</span>
           ) : null}
         </div>
 
-        <p className="text-[15px] whitespace-pre-wrap my-1">{post.body}</p>
+        {editing ? (
+          <form onSubmit={saveEdit} className="mt-2">
+            <textarea className="input w-full" style={{ borderRadius: 12, minHeight: 60 }} value={editBody}
+              onChange={(e) => setEditBody(e.target.value)} maxLength={2000} />
+            <div className="flex justify-end gap-2 mt-2">
+              <button type="button" className="btn-ghost" style={{ borderRadius: 9999, padding: "6px 14px" }} onClick={() => { setEditing(false); setEditBody(post.body); }}>Cancel</button>
+              <button type="submit" className="btn" style={{ borderRadius: 9999, padding: "6px 14px" }} disabled={editBusy || !editBody.trim()}>{editBusy ? "Saving…" : "Save"}</button>
+            </div>
+          </form>
+        ) : (
+          <p className="text-[15px] whitespace-pre-wrap my-1">{post.body}</p>
+        )}
 
-        <div className="flex items-center justify-between mt-2" style={{ maxWidth: 420, color: "var(--muted)" }}>
-          <button onClick={() => !staticView && openComments()} className="tw-ico" title="Comment">💬 {post.commentCount}</button>
+        <div className="flex items-center justify-between mt-2" style={{ maxWidth: 460, color: "var(--muted)" }}>
+          <button onClick={() => router.push(`/post/${post.id}`)} className="tw-ico" title="Comment">💬 {post.commentCount}</button>
           <button onClick={() => !staticView && onLike(post.id)} className="tw-ico" title="Like"
             style={{ color: post.likedByMe ? "var(--like)" : "var(--muted)" }}>
             {post.likedByMe ? "♥" : "♡"} {post.likeCount}
           </button>
-          {!staticView && (
-            <button onClick={() => { setReportSent(false); setReporting(true); }} className="tw-ico" title="Report" style={{ position: "relative" }}>
-              ⚑ Report
-              {reportSent && (
-                <span className="text-[11px] ml-1" style={{ color: "var(--accent)" }}>✓ sent</span>
-              )}
-            </button>
+          <button onClick={toggleBookmark} className="tw-ico" title="Bookmark"
+            style={{ color: bookmarked ? "var(--accent)" : "var(--muted)" }}>
+            {bookmarked ? "🔖" : "📑"} {bookmarked ? "Saved" : "Save"}
+          </button>
+          <button onClick={copyLink} className="tw-ico" title="Copy link">{copied ? "✓" : "🔗"}</button>
+          <button onClick={share} className="tw-ico" title="Share">↗</button>
+          {!staticView && (canEdit || canDelete) && (
+            <span className="relative">
+              <button className="tw-ico" title="More" onClick={() => setEditing((editing ? editing : !editing))}>⋯</button>
+            </span>
+          )}
+          {!staticView && !editing && (canEdit || canDelete) && (
+            <span className="flex items-center gap-2 ml-1">
+              {canEdit && <button className="tw-ico text-xs" onClick={() => setEditing(true)}>Edit</button>}
+              {canDelete && <button className="tw-ico text-xs" style={{ color: "var(--like)" }} onClick={delPost} disabled={busy}>Delete</button>}
+            </span>
           )}
         </div>
 
@@ -266,6 +375,11 @@ export function PostCard({ post, onLike, staticView }: { post: Post; onLike: (id
             onClose={() => setReporting(false)}
             onSent={() => { setReportSent(true); setReporting(false); }}
           />
+        )}
+        {!staticView && (
+          <div className="flex justify-end">
+            <button className="text-xs tw-ico" onClick={() => { setReportSent(false); setReporting(true); }} style={{ color: "var(--muted)" }}>⚑ Report</button>
+          </div>
         )}
       </div>
     </article>

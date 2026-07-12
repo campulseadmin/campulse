@@ -54,7 +54,9 @@ model User {
   posts            Post[]
   comments         Comment[]
   likes            Like[]
+  commentLikes     CommentLike[]
   rsvps            Rsvp[]
+  bookmarks        Bookmark[]
   memberships      Membership[]
   reportsFiled     Report[]  @relation("Reporter")
   eventsCreated    Event[]   @relation("EventCreator")
@@ -133,27 +135,62 @@ model Post {
   body        String
   imageUrl    String?
   isRemoved   Boolean    @default(false)
+  editedAt    DateTime? // set when the author edits within the grace window
   createdAt   DateTime   @default(now())
 
   comments Comment[]
   likes    Like[]
   reports  Report[]
+  bookmarks Bookmark[]
 
   @@index([campusId, createdAt])
   @@index([communityId])
 }
 
 model Comment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   postId    String
-  post      Post     @relation(fields: [postId], references: [id])
+  post      Post      @relation(fields: [postId], references: [id])
   authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
+  author    User      @relation(fields: [authorId], references: [id])
+  parentId  String? // for nested replies (one level)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
   body      String
-  isRemoved Boolean  @default(false)
-  createdAt DateTime @default(now())
+  isRemoved Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  likes CommentLike[]
 
   @@index([postId])
+  @@index([parentId])
+}
+
+// Like on a comment (separate from post Likes).
+model CommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+}
+
+// Saved posts (bookmarks).
+model Bookmark {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId])
 }
 
 model Like {

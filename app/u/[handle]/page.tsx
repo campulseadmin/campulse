@@ -20,7 +20,8 @@ function ProfileInner({ handle }: { handle: string }) {
     createdAt: string; postCount: number; avatarUrl: string | null;
   } | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [tab, setTab] = useState<"posts" | "media" | "likes">("posts");
+  const [tab, setTab] = useState<"posts" | "media" | "likes" | "saved">("posts");
+  const [saved, setSaved] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [isMe, setIsMe] = useState(false);
@@ -111,10 +112,19 @@ function ProfileInner({ handle }: { handle: string }) {
           <div className={`tw-tab ${tab === "posts" ? "active" : ""}`} onClick={() => setTab("posts")}>Posts</div>
           <div className={`tw-tab ${tab === "media" ? "active" : ""}`} onClick={() => setTab("media")}>Media</div>
           <div className={`tw-tab ${tab === "likes" ? "active" : ""}`} onClick={() => setTab("likes")}>Likes</div>
+          {isMe && <div className={`tw-tab ${tab === "saved" ? "active" : ""}`} onClick={async () => { if (saved.length === 0) { const r = await fetch("/api/bookmarks"); const d = await r.json(); if (r.ok) setSaved(d.posts || []); } setTab("saved"); }}>Saved</div>}
         </div>
 
         <div className="pb-16">
-          {tab !== "posts" ? (
+          {tab === "saved" ? (
+            saved.length === 0 ? (
+              <div className="tw-post p-8 text-center" style={{ color: "var(--muted)" }}>No saved posts yet.</div>
+            ) : (
+              saved.map((p) => (
+                <PostCard key={p.id} post={{ ...p, editedAt: null, bookmarkedByMe: true, isMine: false }} onLike={async () => {}} staticView />
+              ))
+            )
+          ) : tab !== "posts" ? (
             <div className="tw-post p-8 text-center" style={{ color: "var(--muted)" }}>
               {tab === "media" ? "No media yet." : "No likes yet."}
             </div>
@@ -124,7 +134,7 @@ function ProfileInner({ handle }: { handle: string }) {
             </div>
           ) : (
             posts.map((p) => (
-              <PostCard key={p.id} post={p} onLike={async () => {}} staticView />
+              <PostCard key={p.id} post={{ ...p, editedAt: null, bookmarkedByMe: false, isMine: false }} onLike={async () => {}} staticView />
             ))
           )}
         </div>

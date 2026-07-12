@@ -10,11 +10,14 @@ function shape(p: any, meId: string) {
     body: p.body,
     imageUrl: p.imageUrl,
     createdAt: p.createdAt,
+    editedAt: p.editedAt,
     author: p.author,
     community: p.community,
     likeCount: p._count.likes,
     commentCount: p._count.comments,
     likedByMe: p.likes.some((l: any) => l.userId === meId),
+    bookmarkedByMe: p.bookmarks?.some((b: any) => b.userId === meId) ?? false,
+    isMine: p.authorId === meId,
   };
 }
 
@@ -47,6 +50,7 @@ export async function GET(req: Request) {
         community: { select: { name: true, slug: true } },
         _count: { select: { likes: true, comments: true } },
         likes: { where: { userId: me.id }, select: { id: true } },
+        bookmarks: { where: { userId: me.id }, select: { id: true } },
       },
     });
     if (posts.length > limit) { posts.pop(); nextCursor = String(skip + limit); }
@@ -70,6 +74,7 @@ export async function GET(req: Request) {
         community: { select: { name: true, slug: true } },
         _count: { select: { likes: true, comments: true } },
         likes: { where: { userId: me.id }, select: { id: true } },
+        bookmarks: { where: { userId: me.id }, select: { id: true } },
       },
     });
     if (posts.length > limit) {
