@@ -5,6 +5,9 @@
 Multi-tenant campus super-app (SRM = campus 1). Built localhost-first with
 Next.js 14 (App Router) + TypeScript + Prisma + NextAuth.
 
+> **Initiated by Abdul Rahman** ([@theabdlrah](https://github.com/theabdlrah)) —
+> [LinkedIn](https://www.linkedin.com/in/theabdlrah/).
+
 > Runs on `npm run dev` with **zero setup** (SQLite). For deploy, swap the
 > Prisma provider to `postgresql` and set `DATABASE_URL` — the schema is
 > otherwise identical. See `DEPLOY.md`.

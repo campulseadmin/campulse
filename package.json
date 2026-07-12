@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "CamPulse — the pulse of your campus. Multi-tenant campus super-app (SRM = campus 1).",
+  "author": {
+    "name": "Abdul Rahman",
+    "url": "https://github.com/theabdlrah",
+    "linkedin": "https://www.linkedin.com/in/theabdlrah/"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
