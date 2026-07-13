@@ -367,6 +367,28 @@ function ScoutTab() {
   const [preview, setPreview] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentMsg, setAgentMsg] = useState("");
+
+  async function runAgent() {
+    setAgentBusy(true); setAgentMsg("");
+    try {
+      const r = await fetch("/api/admin/agent/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setAgentMsg(`Agent ran ✓ · Reddit events: ${d.reddit}, Instagram: ${d.instagram}, new drafts: ${d.drafts}${d.errors?.length ? " · " + d.errors.join("; ") : ""}. Review them in the Events tab.`);
+      } else {
+        setAgentMsg(d.error || "Agent failed.");
+      }
+    } catch {
+      setAgentMsg("Network error.");
+    } finally {
+      setAgentBusy(false);
+    }
+  }
 
   async function submit() {
     setBusy(true); setMsg("");
@@ -423,6 +445,17 @@ function ScoutTab() {
       <button className="btn mt-3" style={{ borderRadius: 9999, padding: "8px 18px", fontWeight: 700 }} disabled={busy || !text.trim()} onClick={submit}>
         {busy ? "Extracting…" : "Extract & add as draft"}
       </button>
+
+      <div className="tw-post p-3 mt-4" style={{ borderStyle: "dashed" }}>
+        <div className="text-[13px] font-semibold mb-1">Automated agent</div>
+        <div className="text-[12px] mb-2" style={{ color: "var(--muted)" }}>
+          Runs the discovery agent: pulls r/SRMIST (Reddit RSS) + linked Instagram, extracts event posts, and drops them in the draft queue for your approval. Schedule it with a cron for hands-off operation.
+        </div>
+        <button className="btn-ghost" style={{ borderRadius: 9999, padding: "6px 16px", fontWeight: 700, border: "1px solid var(--accent)", color: "var(--accent)" }} disabled={agentBusy} onClick={runAgent}>
+          {agentBusy ? "Running agent…" : "▶ Run discovery agent"}
+        </button>
+        {agentMsg && <p className="text-[13px] mt-2" style={{ color: agentMsg.startsWith("Agent ran") ? "var(--accent)" : "#f87171" }}>{agentMsg}</p>}
+      </div>
 
       {msg && <p className="text-[13px] mt-2" style={{ color: msg.startsWith("Draft") ? "var(--accent)" : "#f87171" }}>{msg}</p>}
 

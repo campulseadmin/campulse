@@ -56,8 +56,9 @@ export function extractEvent(text: string): ExtractedEvent {
   // Registration / link: first URL anywhere in the text.
   const registrationUrl = extractUrl(t);
 
-  // Location: line starting with "venue:" / "where:" / "location:" / "at:"
-  const loc = t.match(/(?:^|\n)\s*(?:venue|where|location|at)\s*[:\-]?\s*([^\n,]+)/i);
+  // Location: line starting with "venue:" / "where:" / "location:" / "at:".
+  // Stop at the next URL, "registrations/sign-up", or end of phrase.
+  const loc = t.match(/(?:^|\n)\s*(?:venue|where|location|at)\s*[:\-]?\s*([^\n,]+?)(?=\s+https?:\/\/|\s+registrations|\s+sign\s+up|\s+apply|$)/i);
   const location = loc ? loc[1].trim().slice(0, 120) : null;
 
   // Event date via the shared parser (handles ISO / "Aug 15" / "15/08").
