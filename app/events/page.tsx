@@ -11,6 +11,7 @@ interface Ev {
   sourceType: string;
   sourceHandle: string | null;
   sourceUrl: string | null;
+  registrationUrl: string | null;
   imageUrl: string | null;
   rsvpCount: number;
   rsvpByMe: boolean;
@@ -144,6 +145,10 @@ export default function EventsPage() {
                   <a className="text-xs hover:underline" style={{ color: "var(--muted)" }}
                     href={ev.sourceUrl || "#"} target="_blank" rel="noreferrer">{ev.sourceHandle}</a>
                 )}
+                {ev.sourceUrl && (
+                  <a className="text-xs hover:underline" style={{ color: "var(--muted)" }}
+                    href={ev.sourceUrl} target="_blank" rel="noreferrer">· view source ↗</a>
+                )}
               </div>
               <div className="font-bold text-[16px]">{ev.title}</div>
               <div className="text-[13px] mt-1" style={{ color: "var(--muted)" }}>
@@ -161,12 +166,18 @@ export default function EventsPage() {
               )}
               <div className="flex items-center justify-between mt-3">
                 <span className="text-[13px]" style={{ color: "var(--muted)" }}>{ev.rsvpCount} going</span>
-                <button
-                  className={ev.rsvpByMe ? "btn" : "btn-ghost"}
-                  style={ev.rsvpByMe ? { borderRadius: 9999, padding: "6px 16px", fontWeight: 700 } : { borderRadius: 9999, padding: "6px 16px", fontWeight: 700 }}
-                  onClick={() => toggleRsvp(ev.id, ev.rsvpByMe)}>
-                  {ev.rsvpByMe ? "✓ Going" : "Going"}
-                </button>
+                <div className="flex items-center gap-2">
+                  {ev.registrationUrl && (
+                    <a className="btn-ghost" style={{ borderRadius: 9999, padding: "6px 16px", fontWeight: 700 }}
+                      href={ev.registrationUrl} target="_blank" rel="noreferrer">Register ↗</a>
+                  )}
+                  <button
+                    className={ev.rsvpByMe ? "btn" : "btn-ghost"}
+                    style={ev.rsvpByMe ? { borderRadius: 9999, padding: "6px 16px", fontWeight: 700 } : { borderRadius: 9999, padding: "6px 16px", fontWeight: 700 }}
+                    onClick={() => toggleRsvp(ev.id, ev.rsvpByMe)}>
+                    {ev.rsvpByMe ? "✓ Going" : "Going"}
+                  </button>
+                </div>
               </div>
             </article>
           ))}

@@ -21,6 +21,14 @@ export interface IngestedPost {
   sourceHandle: string;
   postedAt: Date;
   startsAt: Date; // the inferred EVENT date (parsed from caption/title)
+  registrationUrl?: string | null; // first URL found in the post (reg/signup link)
+}
+
+// Extract the first http(s) URL from a post's text — used as the
+// registration/signup link the discovery agent surfaces for admin review.
+export function extractUrl(text: string): string | null {
+  const m = text.match(/https?:\/\/[^\s)>\]]+/);
+  return m ? m[0] : null;
 }
 
 // Parse an event date out of a post caption/title. Looks for explicit
@@ -120,6 +128,7 @@ export async function ingestReddit(subreddit: string): Promise<IngestedPost[]> {
         sourceHandle: handle,
         postedAt: new Date(d.created_utc * 1000),
         startsAt,
+        registrationUrl: extractUrl(`${title}\n${selftext}`),
       });
     }
     return out;
@@ -159,6 +168,7 @@ export async function ingestInstagram(): Promise<IngestedPost[]> {
         sourceHandle: handle,
         postedAt: new Date(m.timestamp),
         startsAt,
+        registrationUrl: extractUrl(caption),
       });
     }
     return out;

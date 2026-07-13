@@ -381,6 +381,9 @@ model Event {
   sourceHandle String? // e.g. "r/SRMCampusPulse", "@campulse.srm"
   sourceUrl    String? // permalink to the original post
   externalId   String? // platform post id (dedupe key)
+  // Event-discovery agent: registration link the agent extracted + when found.
+  registrationUrl String?
+  foundAt        DateTime?
 
   imageUrl String?
 

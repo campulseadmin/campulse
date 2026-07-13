@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 
 interface U { id: string; username: string | null; displayName: string | null; email: string; role: string; isBanned: boolean; emailVerified: Date | null; createdAt: string; _count: { posts: number }; }
 interface R { id: string; reason: string; details: string | null; status: string; createdAt: string; reporter: { username: string | null; displayName: string | null }; post: { id: string; body: string; isRemoved: boolean } | null; }
-interface E { id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string | null; isApproved: boolean; _count: { rsvps: number }; }
+interface E { id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string | null; isApproved: boolean; sourceType: string | null; sourceHandle: string | null; sourceUrl: string | null; registrationUrl: string | null; _count: { rsvps: number }; }
 interface Res { id: string; title: string; type: string; dept: string | null; semester: number | null; driveUrl: string; description: string | null; uploadedBy: { displayName: string | null; username: string | null }; }
 
 export function AdminPanel({ adminName, initialTab = "users" }: { adminName: string; initialTab?: "users" | "reports" | "events" | "requests" | "resources" }) {
@@ -204,8 +204,19 @@ function EventsTab() {
             <div className="font-bold text-[15px]">{ev.title}</div>
             <div className="text-[13px]" style={{ color: "var(--muted)" }}>
               {ev.location ? ev.location + " · " : ""}{new Date(ev.startsAt).toLocaleString()} · {ev._count.rsvps} going
-              {!ev.isApproved ? " · ⏳ pending" : ""}
+              {!ev.isApproved ? " · ⏳ pending (draft)" : ""}
             </div>
+            {(ev.sourceHandle || ev.sourceUrl) && (
+              <div className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
+                found via {ev.sourceType || "?"}{ev.sourceHandle ? ` (${ev.sourceHandle})` : ""}
+                {ev.sourceUrl && <> · <a href={ev.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">source ↗</a></>}
+              </div>
+            )}
+            {ev.registrationUrl && (
+              <div className="text-[12px] mt-0.5">
+                <a href={ev.registrationUrl} target="_blank" rel="noreferrer" className="hover:underline" style={{ color: "#1d9bf0" }}>registration ↗</a>
+              </div>
+            )}
           </div>
           {!ev.isApproved && (
             <button className="btn" style={{ padding: "6px 14px" }} disabled={busy === ev.id} onClick={() => approve(ev.id)}>Approve</button>

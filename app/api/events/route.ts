@@ -6,7 +6,9 @@ import { ingestAll } from "@/lib/sources";
 // GET /api/events?sync=1
 // Public-ish: returns APPROVED events for the caller's campus, newest-start first.
 // ?sync=1 (admin only) triggers a pull from the campus-owned Reddit/IG handles,
-// dedupe-inserts new events (auto-approved), and returns the refreshed list.
+// dedupe-inserts new events as DRAFTS (isApproved:false) for admin review, and
+// returns the refreshed list. This is the event-discovery agent's human-in-the-loop:
+// detected -> draft queue -> admin approves -> published. No auto-publish.
 export async function GET(req: Request) {
   const me = await currentUser();
   if (!me) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
@@ -37,12 +39,14 @@ export async function GET(req: Request) {
           description: p.description,
           location: null,
           startsAt,
-          isApproved: true, // owner-authenticated ingest = trusted
+          isApproved: false, // DRAFT — admin reviews before it goes public
           sourceType: p.sourceType,
           sourceHandle: p.sourceHandle,
           sourceUrl: p.sourceUrl,
           externalId: p.externalId,
           imageUrl: p.imageUrl,
+          registrationUrl: p.registrationUrl ?? null,
+          foundAt: new Date(),
         },
       }).catch(() => {}); // swallow unique races
     }
