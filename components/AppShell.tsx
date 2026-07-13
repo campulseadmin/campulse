@@ -15,6 +15,7 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
   const [campus, setCampus] = useState<{ shortName: string }>({ shortName: "" });
   const [communities, setCommunities] = useState<Comm[]>([]);
   const [hot, setHot] = useState<Hot>({ posts: [], events: [] });
+  const [suggest, setSuggest] = useState<{ id: string; username: string | null; displayName: string | null; avatarUrl: string | null | undefined; _count: { posts: number } }[]>([]);
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -28,7 +29,17 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
     fetch("/api/trending").then((r) => r.json()).then((d) => {
       if (!d.error) setHot({ posts: d.posts || [], events: d.events || [] });
     }).catch(() => {});
+    fetch("/api/people/suggest").then((r) => r.json()).then((d) => {
+      if (!d.error) setSuggest(d.suggestions || []);
+    }).catch(() => {});
   }, []);
+
+  async function toggleFollow(handle: string) {
+    const target = suggest.find((s) => s.username === handle);
+    if (!target) return;
+    setSuggest((list) => list.filter((s) => s.username !== handle));
+    await fetch(`/api/follow/@${handle}`, { method: "POST" }).catch(() => {});
+  }
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -51,6 +62,7 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
         </div>
         {tab("home", "🏠", "Home", "/dashboard")}
         <a className="tw-navitem" href="/events"><span>📅</span><span className="hidden xl:inline">Events</span></a>
+        <a className="tw-navitem" href="/resources"><span>📚</span><span className="hidden xl:inline">Resources</span></a>
         <a className="tw-navitem" href="/search"><span>🔍</span><span className="hidden xl:inline">Explore</span></a>
         <a className="tw-navitem"><span>🔔</span><span className="hidden xl:inline">Notifications</span></a>
         <a className="tw-navitem"><span>✉️</span><span className="hidden xl:inline">Messages</span></a>
@@ -119,6 +131,29 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
           ))}
           {communities.length === 0 && (
             <div className="text-[14px]" style={{ color: "var(--muted)" }}>No communities yet.</div>
+          )}
+        </div>
+
+        <div className="tw-sidebarbox p-4">
+          <div className="font-bold text-[20px] mb-3">People to follow</div>
+          {suggest.map((s) => (
+            <div key={s.id} className="flex items-center justify-between py-2">
+              <a href={s.username ? `/u/@${s.username}` : "#"} className="flex items-center gap-2 min-w-0">
+                <Avatar src={s.avatarUrl} name={s.displayName || s.username || "?"}
+                  className="w-9 h-9 rounded-full shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-[15px] truncate">{s.displayName || s.username}</div>
+                  <div className="text-[13px] truncate" style={{ color: "var(--muted)" }}>
+                    {s.username ? `@${s.username}` : ""} · {s._count.posts} posts
+                  </div>
+                </div>
+              </a>
+              <button className="btn-primary" style={{ borderRadius: 9999, padding: "6px 16px", fontSize: 14, fontWeight: 700 }}
+                onClick={() => toggleFollow(s.username!)}>Follow</button>
+            </div>
+          ))}
+          {suggest.length === 0 && (
+            <div className="text-[14px]" style={{ color: "var(--muted)" }}>You're following everyone worth following. 🎉</div>
           )}
         </div>
       </aside>

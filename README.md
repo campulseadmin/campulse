@@ -99,6 +99,14 @@ prisma/         schema.prisma, migrations, seed scripts
   HTML, not JSON). CamPulse never depends on it.
 - `.env` is gitignored (never committed). `npm run build` is the authoritative
   type-check.
+- **Study Hub is user-submitted only.** Resources are student-owned share links,
+  admin-approved before public. CamPulse **never scrapes or imports** another
+  site's library (THE HELPER, SRM VERSE, etc.). The competitive edge is the
+  platform experience (discovery + community), not copying content.
+- **Differentiator = discovery, not storage.** Files are a commodity anyone can
+  collect. CamPulse's moat is finding the *right* resource in <10 seconds
+  (search + dept/semester/type filters + tags + trust signals). Vision:
+  *"THE HELPER stores resources. CamPulse helps you find the right resource."*
 
 ## Scripts
 

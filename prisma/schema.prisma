@@ -22,65 +22,70 @@ model Campus {
   emailDomain String // "srmist.edu.in" — gate signups to this domain
   createdAt   DateTime @default(now())
 
-  users       User[]
-  communities Community[]
-  posts       Post[]
-  events      Event[]
+  users         User[]
+  communities   Community[]
+  posts         Post[]
+  events        Event[]
   adminRequests AdminRequest[]
+  Resource      Resource[]
 }
 
 // ── Users ────────────────────────────────────────────────
 // Roles stored as string (STUDENT | MODERATOR | ADMIN). String for SQLite portability.
 
 model User {
-  id           String    @id @default(cuid())
-  campusId     Int
-  campus       Campus    @relation(fields: [campusId], references: [id])
-  email        String    @unique // srm email, verified
-  passwordHash String? // bcrypt hash; set at signup (email+password auth)
-  emailVerified DateTime?
-  username     String?   @unique // @handle, chosen at onboarding
-  displayName  String?
-  avatarUrl    String?
-  bio          String?
-  role         String    @default("STUDENT") // STUDENT | MODERATOR | ADMIN
-  dept         String? // CSE, ECE...
-  batch        String? // 2023-2027
-  isBanned     Boolean   @default(false)
-  bannedUntil  DateTime?
+  id                String    @id @default(cuid())
+  campusId          Int
+  campus            Campus    @relation(fields: [campusId], references: [id])
+  email             String    @unique // srm email, verified
+  passwordHash      String? // bcrypt hash; set at signup (email+password auth)
+  emailVerified     DateTime?
+  username          String?   @unique // @handle, chosen at onboarding
+  displayName       String?
+  avatarUrl         String?
+  bio               String?
+  role              String    @default("STUDENT") // STUDENT | MODERATOR | ADMIN
+  dept              String? // CSE, ECE...
+  batch             String? // 2023-2027
+  isBanned          Boolean   @default(false)
+  bannedUntil       DateTime?
   usernameChangedAt DateTime? // last @handle change (14-day cooldown)
-  createdAt    DateTime  @default(now())
+  createdAt         DateTime  @default(now())
 
-  posts            Post[]
-  comments         Comment[]
-  likes            Like[]
-  commentLikes     CommentLike[]
-  rsvps            Rsvp[]
-  bookmarks        Bookmark[]
-  memberships      Membership[]
-  reportsFiled     Report[]  @relation("Reporter")
-  eventsCreated    Event[]   @relation("EventCreator")
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  commentLikes  CommentLike[]
+  rsvps         Rsvp[]
+  bookmarks     Bookmark[]
+  memberships   Membership[]
+  reportsFiled  Report[]      @relation("Reporter")
+  eventsCreated Event[]       @relation("EventCreator")
 
   // Social graph + moderation relations.
-  following        Follow[]  @relation("Follower")
-  followers        Follow[]  @relation("Following")
-  mutes            Mute[]
-  blocksAsBlocker  Block[]   @relation("Blocker")
-  blocksAsBlocked  Block[]   @relation("Blocked")
-  reposts          Repost[]
-  bookmarkCollections BookmarkCollection[]
-  notInterested    NotInterested[]
-  hiddenPosts      HiddenPost[]
-  notifications    Notification[] @relation("NotifUser")
-  notificationsAsActor Notification[] @relation("NotifActor")
+  following            Follow[]             @relation("Follower")
+  followers            Follow[]             @relation("Following")
+  mutes                Mute[]
+  blocksAsBlocker      Block[]              @relation("Blocker")
+  blocksAsBlocked      Block[]              @relation("Blocked")
+  reposts              Repost[]
+  bookmarkCollections  BookmarkCollection[]
+  notInterested        NotInterested[]
+  hiddenPosts          HiddenPost[]
+  notifications        Notification[]       @relation("NotifUser")
+  notificationsAsActor Notification[]       @relation("NotifActor")
 
   // Admin-approval requests this user has filed (they want to become an admin).
-  adminRequests   AdminRequest[] @relation("Requester")
+  adminRequests AdminRequest[] @relation("Requester")
   // Admin-approval requests this user has reviewed (as an admin).
-  reviews         AdminRequest[] @relation("Reviewer")
+  reviews       AdminRequest[] @relation("Reviewer")
 
-  @@index([campusId])
+  // Study Hub: resources this user uploaded / approved.
+  uploadedResources Resource[] @relation("ResourceUploader")
+  approvedResources Resource[] @relation("ResourceApprover")
+
   @@unique([campusId, username])
+  @@index([campusId])
 }
 
 // One-time OTP login grant (minted after email code is verified; exchanged
@@ -109,14 +114,14 @@ model OtpCode {
 // Community kind stored as string: DEPARTMENT | SUBJECT | INTEREST | OFFICIAL
 
 model Community {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   campusId    Int
-  campus      Campus        @relation(fields: [campusId], references: [id])
+  campus      Campus   @relation(fields: [campusId], references: [id])
   name        String
   slug        String
   description String?
-  kind        String        @default("INTEREST") // DEPARTMENT | SUBJECT | INTEREST | OFFICIAL
-  createdAt   DateTime      @default(now())
+  kind        String   @default("INTEREST") // DEPARTMENT | SUBJECT | INTEREST | OFFICIAL
+  createdAt   DateTime @default(now())
 
   posts       Post[]
   memberships Membership[]
@@ -147,22 +152,22 @@ model Post {
   community   Community? @relation(fields: [communityId], references: [id])
   body        String
   imageUrl    String?
-  quotedId    String?    // original post when this is a quote-post
+  quotedId    String? // original post when this is a quote-post
   quoted      Post?      @relation("Quoted", fields: [quotedId], references: [id])
   isRemoved   Boolean    @default(false)
   editedAt    DateTime? // set when the author edits within the grace window
   createdAt   DateTime   @default(now())
 
-  comments Comment[]
-  likes    Like[]
-  reports  Report[]
-  bookmarks Bookmark[]
-  reposts  Repost[]
-  quotedBy Post[]     @relation("Quoted")
+  comments      Comment[]
+  likes         Like[]
+  reports       Report[]
+  bookmarks     Bookmark[]
+  reposts       Repost[]
+  quotedBy      Post[]          @relation("Quoted")
   notInterested NotInterested[]
-  hiddenBy HiddenPost[]
-  notifications Notification[] @relation("NotifPost")
-  pref     PostPref?
+  hiddenBy      HiddenPost[]
+  notifications Notification[]  @relation("NotifPost")
+  pref          PostPref?
 
   @@index([campusId, createdAt])
   @@index([communityId])
@@ -205,9 +210,9 @@ model CommentLike {
 model Like {
   id        String   @id @default(cuid())
   postId    String
-  post      Post      @relation(fields: [postId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id])
   userId    String
-  user      User      @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 
   @@unique([postId, userId])
@@ -234,7 +239,7 @@ model Mute {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   kind      String   @default("USER") // USER | HASHTAG | TOPIC
-  value     String   // target userId (USER) or lowercased tag/topic
+  value     String // target userId (USER) or lowercased tag/topic
   createdAt DateTime @default(now())
 
   @@unique([userId, kind, value])
@@ -257,21 +262,21 @@ model Block {
 
 // Per-post author preferences (pin, comments off).
 model PostPref {
-  postId        String  @id
-  post          Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
-  pinned        Boolean @default(false)
-  commentsOff   Boolean @default(false)
+  postId      String  @id
+  post        Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  pinned      Boolean @default(false)
+  commentsOff Boolean @default(false)
 }
 
 // Repost (share a post to your own timeline). kind REPOST | QUOTE.
 // For QUOTE, the new Post body carries the commentary and `quotedId` links back.
 model Repost {
   id        String   @id @default(cuid())
-  postId    String   // the (quote) post the user created
+  postId    String // the (quote) post the user created
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  sourceId  String   // the original post being reposted/quoted
+  sourceId  String // the original post being reposted/quoted
   kind      String   @default("REPOST") // REPOST | QUOTE
   createdAt DateTime @default(now())
 
@@ -285,24 +290,25 @@ model BookmarkCollection {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String   // "Placement Prep", "Notes", "Events", "Funny"
+  name      String // "Placement Prep", "Notes", "Events", "Funny"
   createdAt DateTime @default(now())
 
   bookmarks Bookmark[]
+
   @@unique([userId, name])
   @@index([userId])
 }
 
 // Bookmark now optionally lives in a collection.
 model Bookmark {
-  id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id           String              @id @default(cuid())
+  postId       String
+  post         Post                @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                @relation(fields: [userId], references: [id])
   collectionId String?
   collection   BookmarkCollection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
+  createdAt    DateTime            @default(now())
 
   @@unique([postId, userId])
   @@index([userId])
@@ -322,6 +328,7 @@ model NotInterested {
   @@unique([userId, postId])
   @@index([userId])
 }
+
 model HiddenPost {
   id        String   @id @default(cuid())
   userId    String
@@ -337,12 +344,12 @@ model HiddenPost {
 // Notifications: like / comment / follow / repost / mention.
 model Notification {
   id        String   @id @default(cuid())
-  userId    String   // recipient
+  userId    String // recipient
   user      User     @relation("NotifUser", fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // LIKE | COMMENT | FOLLOW | REPOST | MENTION | ADMIN
-  actorId   String?  // who triggered it
+  type      String // LIKE | COMMENT | FOLLOW | REPOST | MENTION | ADMIN
+  actorId   String? // who triggered it
   actor     User?    @relation("NotifActor", fields: [actorId], references: [id])
-  postId    String?  // related post (if any)
+  postId    String? // related post (if any)
   post      Post?    @relation("NotifPost", fields: [postId], references: [id], onDelete: Cascade)
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -353,31 +360,31 @@ model Notification {
 
 // ── Events ───────────────────────────────────────────────
 model Event {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   campusId    Int
-  campus      Campus   @relation(fields: [campusId], references: [id])
+  campus      Campus    @relation(fields: [campusId], references: [id])
   creatorId   String
-  creator     User     @relation("EventCreator", fields: [creatorId], references: [id])
+  creator     User      @relation("EventCreator", fields: [creatorId], references: [id])
   title       String
   description String?
   location    String?
   startsAt    DateTime
   endsAt      DateTime?
-  isApproved  Boolean  @default(false)
+  isApproved  Boolean   @default(false)
 
   // Provenance — where the event came from. sourceType:
   //   ADMIN     — created by a campus admin in the admin panel
   //   SEED      — seeded curated content (known clubs, no external fetch)
   //   REDDIT    — ingested from the campus-owned subreddit
   //   INSTAGRAM — ingested from the campus-owned Instagram handle
-  sourceType  String   @default("ADMIN")
+  sourceType   String  @default("ADMIN")
   sourceHandle String? // e.g. "r/SRMCampusPulse", "@campulse.srm"
-  sourceUrl   String?  // permalink to the original post
-  externalId  String?  // platform post id (dedupe key)
+  sourceUrl    String? // permalink to the original post
+  externalId   String? // platform post id (dedupe key)
 
-  imageUrl    String?
+  imageUrl String?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   rsvps Rsvp[]
 
@@ -389,12 +396,12 @@ model Event {
 }
 
 model Rsvp {
-  id       String   @id @default(cuid())
-  eventId  String
-  event    Event    @relation(fields: [eventId], references: [id])
-  userId   String
-  user     User     @relation(fields: [userId], references: [id])
-  goingAt  DateTime @default(now())
+  id      String   @id @default(cuid())
+  eventId String
+  event   Event    @relation(fields: [eventId], references: [id])
+  userId  String
+  user    User     @relation(fields: [userId], references: [id])
+  goingAt DateTime @default(now())
 
   @@unique([eventId, userId])
 }
@@ -405,35 +412,65 @@ model Rsvp {
 // assignment via the users endpoint is blocked — it must go through here.
 // status: PENDING | APPROVED | REJECTED
 model AdminRequest {
-  id        String   @id @default(cuid())
-  campusId  Int
-  campus    Campus   @relation(fields: [campusId], references: [id])
-  requesterId String
-  requester User     @relation("Requester", fields: [requesterId], references: [id])
-  reason    String?  // optional justification from the requester
-  status    String   @default("PENDING")
-  reviewedById   String? // admin who approved/rejected
-  reviewedBy     User?   @relation("Reviewer", fields: [reviewedById], references: [id])
-  createdAt DateTime @default(now())
-  reviewedAt DateTime?
+  id           String    @id @default(cuid())
+  campusId     Int
+  campus       Campus    @relation(fields: [campusId], references: [id])
+  requesterId  String
+  requester    User      @relation("Requester", fields: [requesterId], references: [id])
+  reason       String? // optional justification from the requester
+  status       String    @default("PENDING")
+  reviewedById String? // admin who approved/rejected
+  reviewedBy   User?     @relation("Reviewer", fields: [reviewedById], references: [id])
+  createdAt    DateTime  @default(now())
+  reviewedAt   DateTime?
 
   @@index([campusId, status])
   @@index([requesterId])
+}
+
+// ── Study Hub resources (Track B, Stage 1) ───────────────
+// User-contributed study material (NOT scraped from other sites — see README).
+// type: NOTE | PYQ | MATERIAL. Approved by an admin before it shows publicly,
+// so the hub stays junk-free. driveUrl = a Google-Drive/share link the student
+// owns (mirrors THE HELPER's custom-viewer model without rehosting files).
+model Resource {
+  id           String @id @default(cuid())
+  campusId     Int
+  campus       Campus @relation(fields: [campusId], references: [id])
+  uploadedById String
+  uploadedBy   User   @relation("ResourceUploader", fields: [uploadedById], references: [id])
+
+  title       String
+  type        String  @default("NOTE") // NOTE | PYQ | MATERIAL
+  dept        String? // CSE, ECE, AIML...
+  semester    Int? // 1..8
+  driveUrl    String // student-owned share link
+  description String?
+
+  approved     Boolean @default(false)
+  approvedById String?
+  approvedBy   User?   @relation("ResourceApprover", fields: [approvedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([campusId, approved])
+  @@index([campusId, dept])
+  @@index([campusId, type])
 }
 
 // ── Moderation ───────────────────────────────────────────
 // Report status stored as string: OPEN | REVIEWED | ACTIONED | DISMISSED
 
 model Report {
-  id         String       @id @default(cuid())
+  id         String   @id @default(cuid())
   reporterId String
-  reporter   User         @relation("Reporter", fields: [reporterId], references: [id])
+  reporter   User     @relation("Reporter", fields: [reporterId], references: [id])
   postId     String?
-  post       Post?        @relation(fields: [postId], references: [id])
+  post       Post?    @relation(fields: [postId], references: [id])
   reason     String
   details    String?
-  status     String       @default("OPEN") // OPEN | REVIEWED | ACTIONED | DISMISSED
-  createdAt  DateTime     @default(now())
+  status     String   @default("OPEN") // OPEN | REVIEWED | ACTIONED | DISMISSED
+  createdAt  DateTime @default(now())
 
   @@index([status])
 }
