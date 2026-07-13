@@ -72,13 +72,15 @@ export async function fetchRedditRss(subreddit: string): Promise<RssPost[]> {
       const guid = pick(block, "guid") || link;
       const desc = pick(block, "description");
       const pub = pick(block, "pubDate");
+      const pubDate = pub ? new Date(pub) : new Date();
+      const safePub = isNaN(pubDate.getTime()) ? new Date() : pubDate;
       const creator = pick(block, "dc:creator") || pick(block, "author");
       out.push({
         externalId: guid,
         title: title.slice(0, 200),
         description: desc ? stripTags(desc).slice(0, 2000) : null,
         link,
-        pubDate: pub ? new Date(pub) : new Date(),
+        pubDate: safePub,
         creator: creator ? creator.slice(0, 120) : null,
       });
     }

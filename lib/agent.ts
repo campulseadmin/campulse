@@ -13,9 +13,8 @@
 // official, owner-authenticated, or public feeds.
 
 import { prisma } from "@/lib/prisma";
-import { extractEvent } from "@/lib/sources";
+import { extractEvent, ingestInstagram } from "@/lib/sources";
 import { fetchRedditRss } from "@/lib/redditRss";
-import { ingestInstagram } from "@/lib/sources";
 
 export interface AgentRunResult {
   reddit: number;
@@ -34,6 +33,19 @@ export async function runDiscoveryAgent(): Promise<AgentRunResult> {
   const errors: string[] = [];
   let drafts = 0;
 
+  // Resolve a creator ONCE (lookup outside the loop — avoids N+1 queries).
+  // If no admin exists the draft can't be attributed, so we record an error
+  // instead of creating an orphaned/invalid event.
+  const admin = await prisma.user.findFirst({
+    where: { role: "ADMIN" },
+    select: { id: true },
+  });
+  if (!admin) {
+    errors.push("no ADMIN user found — cannot attribute drafted events");
+    return { reddit: 0, instagram: 0, drafts: 0, errors, ranAt: new Date().toISOString() };
+  }
+  const creatorId = admin.id;
+
   // One subreddit is configured app-wide via env (kept simple; per-campus later).
   const subreddit = process.env.REDDIT_SUBREDDIT || "";
   const redditPosts = subreddit ? await fetchRedditRss(subreddit) : [];
@@ -51,11 +63,11 @@ export async function runDiscoveryAgent(): Promise<AgentRunResult> {
     });
     if (dup) continue;
 
-    await prisma.event.create({
+    const created = await prisma.event.create({
       data: {
         // Campus: attach to the first campus (SRM=1) for now; multi-tenant later.
         campusId: 1,
-        creatorId: (await prisma.user.findFirst({ where: { role: "ADMIN" }, select: { id: true } }))?.id || "",
+        creatorId,
         title: ex.title || p.title,
         description: ex.description,
         location: ex.location,
@@ -68,8 +80,8 @@ export async function runDiscoveryAgent(): Promise<AgentRunResult> {
         registrationUrl: ex.registrationUrl,
         foundAt: new Date(),
       },
-    }).catch(() => { /* swallow unique races */ });
-    drafts++;
+    }).catch(() => null);
+    if (created) drafts++; // only count if the write actually succeeded
   }
 
   // Instagram (Graph API) — only if configured.
@@ -82,10 +94,10 @@ export async function runDiscoveryAgent(): Promise<AgentRunResult> {
         select: { id: true },
       });
       if (dup) continue;
-      await prisma.event.create({
+      const created = await prisma.event.create({
         data: {
           campusId: 1,
-          creatorId: (await prisma.user.findFirst({ where: { role: "ADMIN" }, select: { id: true } }))?.id || "",
+          creatorId,
           title: p.title,
           description: p.description,
           location: null,
@@ -99,8 +111,8 @@ export async function runDiscoveryAgent(): Promise<AgentRunResult> {
           registrationUrl: p.registrationUrl ?? null,
           foundAt: new Date(),
         },
-      }).catch(() => {});
-      drafts++;
+      }).catch(() => null);
+      if (created) drafts++;
       igEvents++;
     }
   } catch (e) {
