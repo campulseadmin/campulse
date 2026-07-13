@@ -7,11 +7,11 @@ interface R { id: string; reason: string; details: string | null; status: string
 interface E { id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string | null; isApproved: boolean; sourceType: string | null; sourceHandle: string | null; sourceUrl: string | null; registrationUrl: string | null; _count: { rsvps: number }; }
 interface Res { id: string; title: string; type: string; dept: string | null; semester: number | null; driveUrl: string; description: string | null; uploadedBy: { displayName: string | null; username: string | null }; }
 
-export function AdminPanel({ adminName, initialTab = "users" }: { adminName: string; initialTab?: "users" | "reports" | "events" | "requests" | "resources" }) {
+export function AdminPanel({ adminName, initialTab = "users" }: { adminName: string; initialTab?: "users" | "reports" | "events" | "requests" | "resources" | "scout" }) {
   const params = useSearchParams();
   const tabParam = params.get("tab");
-  const tab: "users" | "reports" | "events" | "requests" | "resources" =
-    tabParam === "reports" || tabParam === "events" || tabParam === "requests" || tabParam === "resources" ? tabParam : initialTab;
+  const tab: "users" | "reports" | "events" | "requests" | "resources" | "scout" =
+    tabParam === "reports" || tabParam === "events" || tabParam === "requests" || tabParam === "resources" || tabParam === "scout" ? tabParam : initialTab;
   return (
     <div>
       <div className="px-4 py-3">
@@ -24,6 +24,7 @@ export function AdminPanel({ adminName, initialTab = "users" }: { adminName: str
         {tab === "events" && <EventsTab />}
         {tab === "requests" && <RequestsTab />}
         {tab === "resources" && <ResourcesTab />}
+        {tab === "scout" && <ScoutTab />}
       </div>
     </div>
   );
@@ -354,6 +355,88 @@ function ResourcesTab() {
         </div>
       ))}
       {items.length === 0 && <p className="text-sm" style={{ color: "var(--muted)" }}>No resources awaiting approval.</p>}
+    </div>
+  );
+}
+
+function ScoutTab() {
+  const [text, setText] = useState("");
+  const [sourceType, setSourceType] = useState("REDDIT");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceHandle, setSourceHandle] = useState("");
+  const [preview, setPreview] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit() {
+    setBusy(true); setMsg("");
+    try {
+      const r = await fetch("/api/admin/events/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, sourceType, sourceUrl, sourceHandle }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setPreview(d.draft);
+        setMsg("Draft created ✓ — review it in the Events tab, then Approve to publish.");
+        setText(""); setSourceUrl(""); setSourceHandle("");
+      } else {
+        setMsg(d.error || "Failed.");
+      }
+    } catch {
+      setMsg("Network error.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <div className="text-lg font-bold mb-1">Event Discovery (paste → draft)</div>
+      <div className="text-[13px] mb-3" style={{ color: "var(--muted)" }}>
+        Paste a post you saw on Reddit / Instagram / WhatsApp / a portal. The agent extracts the event and drops it in the draft queue. No API, no scraping — you stay in control.
+      </div>
+
+      <textarea
+        className="input"
+        rows={6}
+        style={{ width: "100%", borderRadius: 12, padding: 12, fontFamily: "inherit" }}
+        placeholder={"SRM Coding Club Hackathon\nvenue: Tech Park\nregistrations open until July 25\nhttps://forms.gle/hackreg"}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+
+      <div className="flex flex-wrap gap-2 mt-3">
+        <select className="input" style={{ borderRadius: 10, padding: "8px 10px" }} value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
+          <option value="REDDIT">Reddit</option>
+          <option value="INSTAGRAM">Instagram</option>
+          <option value="WHATSAPP">WhatsApp</option>
+          <option value="LINKEDIN">LinkedIn</option>
+          <option value="PORTAL">University portal</option>
+          <option value="OTHER">Other</option>
+        </select>
+        <input className="input" style={{ borderRadius: 10, padding: "8px 10px", flex: 1, minWidth: 160 }} placeholder="Source handle (e.g. r/SRMIST, @club.ig)" value={sourceHandle} onChange={(e) => setSourceHandle(e.target.value)} />
+        <input className="input" style={{ borderRadius: 10, padding: "8px 10px", flex: 1, minWidth: 160 }} placeholder="Source URL (optional)" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+      </div>
+
+      <button className="btn mt-3" style={{ borderRadius: 9999, padding: "8px 18px", fontWeight: 700 }} disabled={busy || !text.trim()} onClick={submit}>
+        {busy ? "Extracting…" : "Extract & add as draft"}
+      </button>
+
+      {msg && <p className="text-[13px] mt-2" style={{ color: msg.startsWith("Draft") ? "var(--accent)" : "#f87171" }}>{msg}</p>}
+
+      {preview && (
+        <div className="tw-post p-4 mt-3">
+          <div className="text-xs px-2 py-0.5 rounded-full inline-block mb-1" style={{ background: "var(--bg)", color: "var(--accent)", border: "1px solid var(--border)" }}>Extracted preview</div>
+          <div className="font-bold text-[15px]">{preview.title}</div>
+          <div className="text-[13px] mt-1" style={{ color: "var(--muted)" }}>
+            📅 {preview.startsAt ? new Date(preview.startsAt).toLocaleString() : "no date"}{preview.location ? <> · 📍 {preview.location}</> : null}
+          </div>
+          {preview.registrationUrl && <div className="text-[12px] mt-1"><a href={preview.registrationUrl} target="_blank" rel="noreferrer" className="hover:underline" style={{ color: "#1d9bf0" }}>registration ↗</a></div>}
+          {preview.description && <p className="text-[14px] mt-2 whitespace-pre-wrap" style={{ color: "var(--muted)" }}>{preview.description.slice(0, 280)}</p>}
+        </div>
+      )}
     </div>
   );
 }

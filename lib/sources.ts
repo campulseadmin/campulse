@@ -31,6 +31,44 @@ export function extractUrl(text: string): string | null {
   return m ? m[0] : null;
 }
 
+// ── Manual "paste a post" extraction (no-API discovery path) ──────────────
+// Takes raw text an admin pasted from Reddit/IG/WhatsApp/etc., and pulls out
+// structured event fields. This is the human-in-the-loop discovery agent:
+//   paste -> extract -> draft queue -> admin approves -> published.
+// Stays fully within platform ToS because the admin is pasting text THEY saw;
+// no scraping, no automated account access.
+export interface ExtractedEvent {
+  title: string | null;
+  description: string | null;
+  location: string | null;
+  startsAt: Date | null;
+  registrationUrl: string | null;
+}
+
+export function extractEvent(text: string): ExtractedEvent {
+  const t = text.trim();
+  const lines = t.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const firstLine = lines[0] || t;
+
+  // Title: first non-empty line, capped.
+  const title = firstLine.slice(0, 200) || null;
+
+  // Registration / link: first URL anywhere in the text.
+  const registrationUrl = extractUrl(t);
+
+  // Location: line starting with "venue:" / "where:" / "location:" / "at:"
+  const loc = t.match(/(?:^|\n)\s*(?:venue|where|location|at)\s*[:\-]?\s*([^\n,]+)/i);
+  const location = loc ? loc[1].trim().slice(0, 120) : null;
+
+  // Event date via the shared parser (handles ISO / "Aug 15" / "15/08").
+  const startsAt = parseEventDate(t, new Date());
+
+  // Description: everything after the first line, capped.
+  const description = lines.slice(1).join("\n").slice(0, 2000) || null;
+
+  return { title, description, location, startsAt, registrationUrl };
+}
+
 // Parse an event date out of a post caption/title. Looks for explicit
 // "when:" / "date:" / "on:" hints, then a set of date formats. Returns null
 // if no date can be inferred (the post won't become an event).
@@ -40,8 +78,9 @@ const MONTHS: Record<string, number> = {
 };
 
 export function parseEventDate(text: string, fallback: Date): Date | null {
-  // Explicit hint like "when: 2026-08-15" or "date: Aug 15"
-  const hint = text.match(/(?:when|date|on|on:|date:)\s*[:\-]?\s*([^\n]+)/i);
+  // Explicit hint like "when: 2026-08-15" or "date: Aug 15" or "on Aug 15".
+  // \b boundaries prevent matching "on" inside words like "registrONs".
+  const hint = text.match(/\b(?:when|date|on)\b\s*[:\-]?\s*([^\n]+)/i);
   const probe = hint ? hint[1] : text;
   const iso = probe.match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/);
   if (iso) {

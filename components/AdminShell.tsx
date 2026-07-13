@@ -14,6 +14,7 @@ const TABS = [
   { key: "events", label: "Events", href: "/admin?tab=events" },
   { key: "requests", label: "Admin Requests", href: "/admin?tab=requests" },
   { key: "resources", label: "Resources", href: "/admin?tab=resources" },
+  { key: "scout", label: "Event Scout", href: "/admin?tab=scout" },
 ] as const;
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
