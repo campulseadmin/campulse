@@ -5,12 +5,13 @@ import { useSearchParams } from "next/navigation";
 interface U { id: string; username: string | null; displayName: string | null; email: string; role: string; isBanned: boolean; emailVerified: Date | null; createdAt: string; _count: { posts: number }; }
 interface R { id: string; reason: string; details: string | null; status: string; createdAt: string; reporter: { username: string | null; displayName: string | null }; post: { id: string; body: string; isRemoved: boolean } | null; }
 interface E { id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string | null; isApproved: boolean; _count: { rsvps: number }; }
+interface Res { id: string; title: string; type: string; dept: string | null; semester: number | null; driveUrl: string; description: string | null; uploadedBy: { displayName: string | null; username: string | null }; }
 
-export function AdminPanel({ adminName, initialTab = "users" }: { adminName: string; initialTab?: "users" | "reports" | "events" | "requests" }) {
+export function AdminPanel({ adminName, initialTab = "users" }: { adminName: string; initialTab?: "users" | "reports" | "events" | "requests" | "resources" }) {
   const params = useSearchParams();
   const tabParam = params.get("tab");
-  const tab: "users" | "reports" | "events" | "requests" =
-    tabParam === "reports" || tabParam === "events" || tabParam === "requests" ? tabParam : initialTab;
+  const tab: "users" | "reports" | "events" | "requests" | "resources" =
+    tabParam === "reports" || tabParam === "events" || tabParam === "requests" || tabParam === "resources" ? tabParam : initialTab;
   return (
     <div>
       <div className="px-4 py-3">
@@ -22,6 +23,7 @@ export function AdminPanel({ adminName, initialTab = "users" }: { adminName: str
         {tab === "reports" && <ReportsTab />}
         {tab === "events" && <EventsTab />}
         {tab === "requests" && <RequestsTab />}
+        {tab === "resources" && <ResourcesTab />}
       </div>
     </div>
   );
@@ -285,6 +287,62 @@ function RequestsTab() {
         </div>
       ))}
       {requests.length === 0 && <p className="text-sm" style={{ color: "var(--muted)" }}>No admin requests.</p>}
+    </div>
+  );
+}
+
+function ResourcesTab() {
+  const [items, setItems] = useState<Res[]>([]);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState("");
+
+  const load = useCallback(async () => {
+    const r = await fetch("/api/admin/resources");
+    const d = await r.json();
+    if (r.ok) setItems(d.pending); else setErr(d.error || "Failed.");
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function act(id: string, action: "approve" | "reject") {
+    setBusy(id + action); setErr("");
+    const r = await fetch("/api/admin/resources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    const d = await r.json();
+    setBusy("");
+    if (!r.ok) { setErr(d.error || "Failed."); return; }
+    load();
+  }
+
+  return (
+    <div className="space-y-2">
+      {err && <p className="text-sm" style={{ color: "#f87171" }}>{err}</p>}
+      {items.map((res) => (
+        <div key={res.id} className="tw-post p-4">
+          <div className="font-bold text-[15px]">{res.title}</div>
+          <div className="text-[13px] mt-1" style={{ color: "var(--muted)" }}>
+            <span className="tw-badge">{res.type}</span>
+            {res.dept && <span className="tw-badge">{res.dept}</span>}
+            {res.semester && <span className="tw-badge">Sem {res.semester}</span>}
+            {" · by "}{res.uploadedBy?.displayName || res.uploadedBy?.username || "a student"}
+          </div>
+          {res.description && <p className="text-[14px] mt-2 p-2 rounded" style={{ background: "var(--bg)" }}>{res.description}</p>}
+          <a href={res.driveUrl} target="_blank" rel="noreferrer" className="text-[13px] break-all hover:underline" style={{ color: "#1d9bf0" }}>
+            {res.driveUrl} ↗
+          </a>
+          <div className="flex gap-2 mt-3">
+            <button className="btn" style={{ padding: "6px 14px" }} disabled={busy === res.id + "approve"} onClick={() => act(res.id, "approve")}>
+              {busy === res.id + "approve" ? "…" : "Approve"}
+            </button>
+            <button className="btn-ghost" style={{ borderRadius: 9999, padding: "6px 14px", color: "#f87171" }} disabled={busy === res.id + "reject"} onClick={() => act(res.id, "reject")}>
+              Reject
+            </button>
+          </div>
+        </div>
+      ))}
+      {items.length === 0 && <p className="text-sm" style={{ color: "var(--muted)" }}>No resources awaiting approval.</p>}
     </div>
   );
 }
