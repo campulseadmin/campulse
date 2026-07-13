@@ -46,3 +46,4 @@ sheerid_home.html
 # user-uploaded avatars (binary, not committed; keep folder via .gitkeep)
 /public/uploads/avatars/*
 !/public/uploads/avatars/.gitkeep
+claude-free.bat
