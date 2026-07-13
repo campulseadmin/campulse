@@ -15,10 +15,17 @@ export async function GET() {
   });
   const followingIds = following.map((f) => f.followingId);
 
+  // Exclude users who have BLOCKED me (they don't want contact).
+  const blockedBy = await prisma.block.findMany({
+    where: { blockedId: me.id },
+    select: { blockerId: true },
+  });
+  const blockedByIds = blockedBy.map((b) => b.blockerId);
+
   const suggestions = await prisma.user.findMany({
     where: {
       campusId: me.campusId,
-      id: { notIn: [...followingIds, me.id] },
+      id: { notIn: [...followingIds, ...blockedByIds, me.id] },
       isBanned: false,
     },
     orderBy: { posts: { _count: "desc" } },
