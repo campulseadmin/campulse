@@ -35,10 +35,15 @@ export function AppShell({ children, active }: { children: React.ReactNode; acti
   }, []);
 
   async function toggleFollow(handle: string) {
+    if (!handle) return;
     const target = suggest.find((s) => s.username === handle);
     if (!target) return;
     setSuggest((list) => list.filter((s) => s.username !== handle));
-    await fetch(`/api/follow/@${handle}`, { method: "POST" }).catch(() => {});
+    const res = await fetch(`/api/follow/@${handle}`, { method: "POST" }).catch(() => null);
+    if (!res || !res.ok) {
+      // roll back: put them back if the follow failed
+      setSuggest((list) => (list.some((s) => s.username === handle) ? list : [...list, target]));
+    }
   }
 
   function submitSearch(e: React.FormEvent) {

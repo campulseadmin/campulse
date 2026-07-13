@@ -36,6 +36,7 @@ export default function ResourcesPage() {
       if (filters.dept) qs.set("dept", filters.dept);
       if (filters.semester) qs.set("semester", filters.semester);
       if (filters.type) qs.set("type", filters.type);
+      if (filters.q) qs.set("q", filters.q);
       const r = await fetch(`/api/resources?${qs.toString()}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Failed to load");

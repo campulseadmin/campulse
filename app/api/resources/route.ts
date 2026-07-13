@@ -84,6 +84,15 @@ export async function POST(req: Request) {
   if (!/^https?:\/\//.test(url)) {
     return NextResponse.json({ error: "driveUrl must be a valid link." }, { status: 400 });
   }
+  // semester must be a clean 1..8 integer, or omitted. Don't coerce garbage to 1.
+  let sem: number | null = null;
+  if (semester !== undefined && semester !== null && semester !== "") {
+    const n = parseInt(String(semester), 10);
+    if (!Number.isInteger(n) || n < 1 || n > 8) {
+      return NextResponse.json({ error: "semester must be 1–8." }, { status: 400 });
+    }
+    sem = n;
+  }
 
   const resource = await prisma.resource.create({
     data: {
@@ -92,7 +101,7 @@ export async function POST(req: Request) {
       title: String(title).slice(0, 200),
       type: String(type || "NOTE").toUpperCase(),
       dept: dept ? String(dept).toUpperCase().slice(0, 20) : null,
-      semester: semester ? Math.min(Math.max(parseInt(String(semester), 10) || 1, 8), 8) : null,
+      semester: sem,
       driveUrl: url.slice(0, 500),
       description: description ? String(description).slice(0, 500) : null,
       approved: false, // admin approves before public
